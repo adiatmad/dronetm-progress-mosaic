@@ -72,3 +72,29 @@ def test_parse_project_slug_rejects_api_or_unrelated_url():
 
     with pytest.raises(DroneTMError):
         parse_project_slug("https://example.org/projects/duut-tasi-50m-metinaro")
+
+
+
+def test_resolve_project_uuid_uses_project_detail_endpoint(monkeypatch):
+    from mosaic_core import resolve_project_uuid
+
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"id": "a8c7c6f0-6a4b-4f39-9db6-8f74e76e8c55"}
+
+    class FakeSession:
+        def get(self, url, timeout):
+            assert url == "https://drone.hotosm.org/api/projects/duut-tasi-50m-metinaro"
+            assert timeout == 30
+            return FakeResponse()
+
+    monkeypatch.setattr("mosaic_core.make_session", lambda token="": FakeSession())
+    assert resolve_project_uuid(
+        "https://drone.hotosm.org",
+        "duut-tasi-50m-metinaro",
+        token="test-token",
+        timeout=30,
+    ) == "a8c7c6f0-6a4b-4f39-9db6-8f74e76e8c55"
