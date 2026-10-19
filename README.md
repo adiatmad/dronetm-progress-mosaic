@@ -18,7 +18,7 @@ A local-first tool for turning completed DroneTM task orthophotos into a project
 
 The `Windows desktop executable` GitHub Actions workflow builds `DroneTM-Progress-Mosaic.exe` on a Windows runner. To request a build, open **Actions → Windows desktop executable → Run workflow** in GitHub. Download the `DroneTM-Progress-Mosaic-Windows-x64` artifact from that run. A `v*` tag also attaches the executable to a GitHub Release.
 
-This packaging path remains **experimental until a Windows build completes and the executable is smoke-tested**. The workflow runs unit tests and a bundled-import self-test, but these do not prove it can connect to your DroneTM account or download a real orthophoto. The first real-project run remains an acceptance check.
+This packaging path remains **experimental until a Windows build completes and the executable is smoke-tested**. The workflow runs unit tests and launches the bundled executable to check its local Streamlit health endpoint, but this does not prove it can connect to your DroneTM account or download a real orthophoto. The first real-project run remains an acceptance check.
 
 ### Source-run fallback
 
@@ -26,7 +26,7 @@ This packaging path remains **experimental until a Windows build completes and t
 2. Download this repository: click **Code → Download ZIP**, then extract it.
 3. Double-click `run_windows.bat`. The first run creates a virtual environment and installs dependencies.
 4. The app opens in your browser. If it does not, open the URL printed in the terminal (usually `http://localhost:8501`).
-5. Paste the DroneTM project page link (for example, `https://drone.hotosm.org/projects/duut-tasi-50m-metinaro`) and a DroneTM bearer token. The app resolves the public project slug to the internal UUID needed by the orthophoto export API. Keep the default base URL for HOT's public DroneTM site.
+5. Paste the DroneTM project page link (for example, `https://drone.hotosm.org/projects/duut-tasi-50m-metinaro`). Paste a DroneTM bearer token if your deployment requires one. The app resolves the public project slug to the internal UUID needed by the orthophoto export API. Keep the default base URL for HOT's public DroneTM site.
 6. Click **Load tasks**, review the task list and statuses, then click **Download selected orthophotos**.
 7. Click **Build mosaic**. Download the GeoTIFF, preview PNG, and task report from the app.
 
