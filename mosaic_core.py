@@ -89,10 +89,10 @@ def normalize_tasks(payload: Any) -> list[dict[str, Any]]:
         raise DroneTMError("No task IDs recognized. Check the task-state response schema.")
     return records
 
-def fetch_tasks(base_url: str, project_id: str, path_template: str, token: str = ""):
+def fetch_tasks(base_url: str, project_id: str, path_template: str, token: str = "", timeout: int = 90):
     url = build_url(base_url, path_template, project_id=safe_id(project_id))
     try:
-        response = make_session(token).get(url, timeout=90)
+        response = make_session(token).get(url, timeout=timeout)
         response.raise_for_status()
         payload = response.json()
     except requests.HTTPError as exc:
