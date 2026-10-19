@@ -4,7 +4,7 @@ import pandas as pd
 import streamlit as st
 import rasterio
 
-from mosaic_core import COMPLETED_DEFAULT, DroneTMError, build_mosaic, create_preview, download_orthophoto, fetch_tasks, is_valid_raster, safe_id, write_task_report
+from mosaic_core import COMPLETED_DEFAULT, DroneTMError, build_mosaic, create_preview, download_orthophoto, fetch_tasks, is_valid_raster, parse_project_slug, resolve_project_uuid, safe_id, write_task_report
 
 st.set_page_config(page_title="DroneTM Progress Mosaic", page_icon="🗺️", layout="wide")
 st.title("🗺️ DroneTM Progress Mosaic")
@@ -13,7 +13,7 @@ st.caption("Download completed-task orthophotos, build a georeferenced mosaic, a
 with st.sidebar:
     st.header("DroneTM connection")
     base_url = st.text_input("DroneTM base URL", value="https://drone.hotosm.org").strip().rstrip("/")
-    project_id = st.text_input("Project ID", placeholder="e.g. 123").strip()
+    project_url = st.text_input("DroneTM project link", value="https://drone.hotosm.org/projects/duut-tasi-50m-metinaro", help="Paste the project page URL, not an API URL.").strip()
     token = st.text_input("Bearer token (optional)", type="password", help="Only sent to the DroneTM host above.")
     timeout = st.number_input("Request timeout (seconds)", min_value=15, max_value=600, value=90, step=15)
     st.divider()
@@ -94,7 +94,7 @@ if records:
             task_id = record["task_id"]
             destination = photo_dir / ("task_" + safe_id(task_id) + ".tif")
             status_line.write("Processing task " + task_id + " (" + str(index + 1) + "/" + str(len(eligible)) + ")…")
-            ok, message = download_orthophoto(base_url, project_id, task_id, photo_path, destination,
+            ok, message = download_orthophoto(base_url, st.session_state.resolved_project_uuid or project_id, task_id, photo_path, destination,
                                                token, timeout=max(int(timeout), 90))
             report_rows.append({"task_id": task_id, "status": record.get("status", ""), "selected": True,
                                 "download_ok": ok, "message": message, "file_path": str(destination) if ok else ""})
