@@ -26,7 +26,7 @@ This packaging path remains **experimental until a Windows build completes and t
 2. Download this repository: click **Code → Download ZIP**, then extract it.
 3. Double-click `run_windows.bat`. The first run creates a virtual environment and installs dependencies.
 4. The app opens in your browser. If it does not, open the URL printed in the terminal (usually `http://localhost:8501`).
-5. Paste the DroneTM project page link (for example, `https://drone.hotosm.org/projects/duut-tasi-50m-metinaro`). Paste a DroneTM bearer token if your deployment requires one. The app resolves the public project slug to the internal UUID needed by the orthophoto export API. Keep the default base URL for HOT's public DroneTM site.
+5. Paste the DroneTM project page link (for example, `https://drone.hotosm.org/projects/duut-tasi-50m-metinaro`). Paste a DroneTM bearer token if your deployment requires one. The app resolves the public project slug to the internal UUID needed by the orthophoto export API. Keep the default API base URL (`https://api.drone.hotosm.org`); the project page itself is hosted on `drone.hotosm.org`.
 6. Click **Load tasks**, review the task list and statuses, then click **Download selected orthophotos**.
 7. Click **Build mosaic**. Download the GeoTIFF, preview PNG, and task report from the app.
 
@@ -43,10 +43,11 @@ py -3.11 -m venv .venv
 
 Defaults are based on the currently documented DroneTM-style routes, but deployments can differ. Check the API docs for your instance if requests return 404 or 401.
 
-- Task-state path template: `/api/tasks/states/{project_id}`
-- Per-task orthophoto path template: `/api/projects/odm/export/{project_id}/{task_id}/orthophoto/`
+- API base URL: `https://api.drone.hotosm.org` (the web app uses `https://drone.hotosm.org`).
+- Task-state path template: `/tasks/states/{project_id}`
+- Per-task orthophoto path template: `/projects/odm/export/{project_id}/{task_id}/orthophoto/`
 
-The app lets you change both templates. The base URL should look like `https://your-drone-tm.example.org`, without the route suffix. A bearer token is sent only to the DroneTM host you configure. Project UUID resolution uses the project detail endpoint, which accepts the project slug on the current HOT DroneTM API. Do not paste credentials into public issues or screenshots.
+The app lets you change both templates. The base URL must point to the API server, not the frontend; for HOT’s public instance use `https://api.drone.hotosm.org`, without the route suffix. A bearer token is sent only to the DroneTM host you configure. Project UUID resolution uses the project detail endpoint, which accepts the project slug on the current HOT DroneTM API. Do not paste credentials into public issues or screenshots.
 
 The task parser accepts common list/dictionary response shapes. If your deployment returns an unusual schema, download the API response from your browser/API docs and open an issue with a **redacted** sample (remove tokens, private URLs, and personal data).
 
