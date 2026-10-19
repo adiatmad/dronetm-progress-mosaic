@@ -191,7 +191,7 @@ def create_preview(mosaic_path: Path, preview_path: Path, max_dimension: int = 1
         data = src.read(out_shape=(src.count, height, width), resampling=Resampling.average, masked=True)
         channels = []
         for index in range(min(3, data.shape[0])):
-            band = np.asarray(data[index].filled(np.nan), dtype=np.float32)
+            band = np.asarray(data[index].astype(np.float32).filled(np.nan), dtype=np.float32)
             valid = np.isfinite(band)
             if not valid.any():
                 channels.append(np.zeros(band.shape, dtype=np.uint8))
