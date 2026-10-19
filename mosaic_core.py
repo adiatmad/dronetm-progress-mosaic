@@ -168,7 +168,7 @@ def build_mosaic(source_paths: list[Path], output_path: Path) -> dict[str, Any]:
             method="first",
             dst_path=temporary,
             mem_limit=256,
-            dst_kwds={"compress": "deflate", "tiled": True, "BIGTIFF": "IF_SAFER"},
+            dst_kwds={"compress": "deflate", "BIGTIFF": "IF_SAFER"},
         )
         os.replace(temporary, output_path)
         with rasterio.open(output_path) as result:
