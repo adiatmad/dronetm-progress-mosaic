@@ -7,8 +7,11 @@ from pathlib import Path
 from mosaic_core import (
     COMPLETED_DEFAULT,
     DroneTMError,
+    build_mosaic,
+    create_preview,
     download_orthophoto,
     fetch_tasks,
+    is_valid_raster,
     parse_project_slug,
     resolve_project_uuid,
     safe_id,
@@ -22,7 +25,7 @@ DEFAULT_PHOTO_PATH = "/projects/odm/export/{project_id}/{task_id}/orthophoto/"
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Download orthophotos for all completed/processed DroneTM tasks."
+        description="Download processed DroneTM orthophotos and build a local progress mosaic."
     )
     parser.add_argument(
         "--project-url",
@@ -33,6 +36,11 @@ def main() -> int:
     parser.add_argument("--token", default="", help="Bearer token; omit to be prompted securely")
     parser.add_argument("--timeout", type=int, default=180)
     parser.add_argument("--output-dir", default="")
+    parser.add_argument(
+        "--no-mosaic",
+        action="store_true",
+        help="Only download orthophotos; do not build mosaic or preview",
+    )
     args = parser.parse_args()
 
     token = args.token.strip() or getpass.getpass(
@@ -44,6 +52,8 @@ def main() -> int:
     photo_dir = project_dir / "orthophotos"
     photo_dir.mkdir(parents=True, exist_ok=True)
     report_path = project_dir / "task_report.csv"
+    mosaic_path = project_dir / "mosaic.tif"
+    preview_path = project_dir / "preview.png"
 
     print(f"Project: {slug}")
     print("Resolving project ID and loading task states...")
@@ -64,7 +74,7 @@ def main() -> int:
             print(f"  - {status}")
         return 2
 
-    print(f"Found {len(tasks)} task records; downloading {len(completed)} completed/processed tasks.")
+    print(f"Found {len(tasks)} task records; downloading/checking {len(completed)} completed/processed tasks.")
     report_rows = []
     succeeded = 0
     for index, task in enumerate(completed, 1):
@@ -88,15 +98,49 @@ def main() -> int:
             "selected": True,
             "download_ok": ok,
             "message": message,
-            "file_path": str(destination) if ok else "",
+            "file_path": str(destination.resolve()) if ok else "",
         })
 
     write_task_report(report_rows, report_path)
     print(f"\nFinished: {succeeded}/{len(completed)} orthophotos available.")
     print(f"Orthophotos: {photo_dir.resolve()}")
     print(f"Task report: {report_path.resolve()}")
-    print("Existing valid GeoTIFFs are reused; failed tasks are listed in the CSV report.")
-    return 0 if succeeded == len(completed) else 1
+
+    if args.no_mosaic:
+        print("Mosaic step skipped (--no-mosaic).")
+        return 0 if succeeded == len(completed) else 1
+
+    available_paths = [
+        photo_dir / f"task_{safe_id(task['task_id'])}.tif"
+        for task in completed
+        if is_valid_raster(photo_dir / f"task_{safe_id(task['task_id'])}.tif")
+    ]
+    if not available_paths:
+        print("No valid GeoTIFFs are available; cannot build a mosaic.")
+        return 1
+
+    print(f"\nBuilding progress mosaic from {len(available_paths)} valid orthophotos...")
+    try:
+        summary = build_mosaic(available_paths, mosaic_path)
+        create_preview(mosaic_path, preview_path)
+        print("Mosaic built.")
+        print(f"GeoTIFF: {mosaic_path.resolve()}")
+        print(f"Preview: {preview_path.resolve()}")
+        print(
+            f"Dimensions: {summary['width']:,} x {summary['height']:,} px; "
+            f"bands: {summary['bands']}; CRS: {summary['crs']}; "
+            f"source orthophotos: {summary['source_count']}; "
+            f"size: {summary['size_bytes'] / 1048576:.1f} MiB"
+        )
+    except DroneTMError as exc:
+        print(f"MOSAIC FAILED: {exc}")
+        print("Downloaded orthophotos and task_report.csv are preserved.")
+        return 1
+
+    if succeeded != len(completed):
+        print("Mosaic was built from available files, but one or more task orthophotos remain unavailable; see task_report.csv.")
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
