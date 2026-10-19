@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+.pytest_cache/
+*.py[cod]
+.streamlit/secrets.toml
+data/
+*.tif
+*.tiff
+*.png
+.env
