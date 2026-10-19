@@ -76,7 +76,7 @@ def normalize_tasks(payload: Any) -> list[dict[str, Any]]:
                 value = _pick(value, ("id", "task_id"))
             if value is None:
                 continue
-            state = _pick(item, ("state", "status", "task_state", "taskStatus", "processing_state"))
+            state = _pick(item, ("state", "status", "task_state", "task_status", "taskStatus", "processing_state", "processing_status"))
             if isinstance(state, dict):
                 state = _pick(state, ("state", "status", "name"))
             task_id, status, raw = str(value), str(state or "").strip(), item
