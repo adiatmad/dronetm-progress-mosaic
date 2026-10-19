@@ -26,7 +26,7 @@ def test_nested_task_id_and_status():
 
 
 def test_url_join():
-    assert build_url("https://example.org/", "/api/tasks/states/{project_id}", project_id=123) == "https://example.org/api/tasks/states/123"
+    assert build_url("https://example.org/", "/tasks/states/{project_id}", project_id=123) == "https://example.org/api/tasks/states/123"
 
 
 def test_safe_id():
@@ -87,13 +87,13 @@ def test_resolve_project_uuid_uses_project_detail_endpoint(monkeypatch):
 
     class FakeSession:
         def get(self, url, timeout):
-            assert url == "https://drone.hotosm.org/api/projects/duut-tasi-50m-metinaro"
+            assert url == "https://api.drone.hotosm.org/projects/duut-tasi-50m-metinaro"
             assert timeout == 30
             return FakeResponse()
 
     monkeypatch.setattr("mosaic_core.make_session", lambda token="": FakeSession())
     assert resolve_project_uuid(
-        "https://drone.hotosm.org",
+        "https://api.drone.hotosm.org",
         "duut-tasi-50m-metinaro",
         token="test-token",
         timeout=30,
