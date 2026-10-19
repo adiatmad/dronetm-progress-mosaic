@@ -39,7 +39,7 @@ jobs:
       - name: Build single-file executable
         shell: pwsh
         run: |
-          pyinstaller --noconfirm --clean --onefile --name DroneTM-Progress-Mosaic --add-data "app.py;." --add-data "mosaic_core.py;." --collect-all streamlit --collect-all rasterio --collect-all numpy --collect-all pandas --collect-all PIL --collect-all altair --collect-all pydeck --collect-all watchdog --collect-all tornado --collect-all requests --copy-metadata streamlit --copy-metadata rasterio --copy-metadata pandas --copy-metadata numpy --copy-metadata requests desktop_launcher.py
+          pyinstaller --noconfirm --clean --onefile --name DroneTM-Progress-Mosaic --add-data "app.py;." --add-data "mosaic_core.py;." --collect-all streamlit --collect-all rasterio --collect-all numpy --collect-all pandas --collect-all PIL --collect-all altair --collect-all pydeck --collect-all watchdog --collect-all tornado --collect-all requests --copy-metadata streamlit --copy-metadata rasterio --copy-metadata pandas --copy-metadata numpy --copy-metadata requests --hidden-import mosaic_core desktop_launcher.py
 
       - name: Verify executable exists
         shell: pwsh
