@@ -46,7 +46,7 @@ Defaults are based on the currently documented DroneTM-style routes, but deploym
 - Task-state path template: `/api/tasks/states/{project_id}`
 - Per-task orthophoto path template: `/api/projects/odm/export/{project_id}/{task_id}/orthophoto/`
 
-The app lets you change both templates. The base URL should look like `https://your-drone-tm.example.org`, without the route suffix. A bearer token is sent only to the DroneTM host you configure. Project UUID resolution uses the authenticated project-search endpoint; a token with access to the project is needed. Do not paste credentials into public issues or screenshots.
+The app lets you change both templates. The base URL should look like `https://your-drone-tm.example.org`, without the route suffix. A bearer token is sent only to the DroneTM host you configure. Project UUID resolution uses the project detail endpoint, which accepts the project slug on the current HOT DroneTM API. Do not paste credentials into public issues or screenshots.
 
 The task parser accepts common list/dictionary response shapes. If your deployment returns an unusual schema, download the API response from your browser/API docs and open an issue with a **redacted** sample (remove tokens, private URLs, and personal data).
 
