@@ -9,6 +9,16 @@ from pathlib import Path
 
 
 def main() -> None:
+    if "--self-test" in sys.argv:
+        import numpy
+        import pandas
+        import rasterio
+        import requests
+        import streamlit
+        from PIL import Image
+        print("Imports OK:", streamlit.__version__, rasterio.__version__, numpy.__version__, pandas.__version__, requests.__version__)
+        return
+
     # PyInstaller extracts bundled app files into _MEIPASS. Keep outputs in
     # the user's current working directory, not in the temporary extraction dir.
     bundle_dir = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
