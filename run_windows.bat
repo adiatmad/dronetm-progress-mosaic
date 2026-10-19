@@ -4,7 +4,7 @@ cd /d "%~dp0"
 
 where py >nul 2>nul
 if errorlevel 1 (
-  echo Python launcher ^(py^) was not found.
+  echo Python launcher (py) was not found.
   echo Install 64-bit Python 3.11 or 3.12 from https://www.python.org/downloads/windows/
   echo Make sure "Add Python to PATH" is enabled.
   pause
@@ -15,7 +15,12 @@ if not exist ".venv\Scripts\python.exe" (
   echo Creating local virtual environment...
   py -3.11 -m venv .venv
   if errorlevel 1 (
-    echo Could not create a Python 3.11 environment. Install Python 3.11 or edit this script for your installed version.
+    if exist ".venv" rmdir /s /q ".venv"
+    py -3.12 -m venv .venv
+  )
+  if errorlevel 1 (
+    echo Could not create a Python 3.11 or 3.12 environment.
+    echo Install 64-bit Python from https://www.python.org/downloads/windows/
     pause
     exit /b 1
   )
