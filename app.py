@@ -48,8 +48,6 @@ if "mosaic_summary" not in st.session_state:
     st.session_state.mosaic_summary = {}
 if "resolved_project_uuid" not in st.session_state:
     st.session_state.resolved_project_uuid = None
-if "resolved_project_uuid" not in st.session_state:
-    st.session_state.resolved_project_uuid = None
 
 col_a, col_b = st.columns([1, 3])
 with col_a:
