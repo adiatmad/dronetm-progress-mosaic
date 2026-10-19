@@ -160,15 +160,16 @@ def build_mosaic(source_paths: list[Path], output_path: Path) -> dict[str, Any]:
                 virtuals.append(vrt)
                 by_name[ds.name] = vrt
         sources = [by_name.get(ds.name, ds) for ds in datasets]
-        mosaic, transform = merge(sources, method="first")
-        profile = datasets[0].profile.copy()
-        profile.update(driver="GTiff", height=mosaic.shape[1], width=mosaic.shape[2],
-                       transform=transform, crs=target_crs, count=mosaic.shape[0],
-                       compress="deflate", tiled=True, BIGTIFF="IF_SAFER")
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        temporary = output_path.with_suffix(".tif.part")
-        with rasterio.open(temporary, "w", **profile) as dst:
-            dst.write(mosaic)
+        temporary = output_path.with_name(output_path.stem + ".part.tif")
+        # Write in bounded chunks instead of allocating the full mosaic in RAM.
+        merge(
+            sources,
+            method="first",
+            dst_path=temporary,
+            mem_limit=256,
+            dst_kwds={"compress": "deflate", "tiled": True, "BIGTIFF": "IF_SAFER"},
+        )
         os.replace(temporary, output_path)
         with rasterio.open(output_path) as result:
             return {"path": str(output_path), "width": result.width, "height": result.height,
