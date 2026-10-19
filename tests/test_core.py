@@ -4,7 +4,7 @@ import numpy as np
 import rasterio
 from rasterio.transform import from_origin
 
-from mosaic_core import build_mosaic, build_url, create_preview, normalize_tasks, safe_id
+from mosaic_core import build_mosaic, build_url, create_preview, normalize_tasks, parse_project_slug, safe_id
 
 
 def test_normalize_list_of_task_records():
@@ -59,3 +59,16 @@ def test_build_mosaic_and_preview(tmp_path: Path):
     preview = create_preview(mosaic, tmp_path / "preview.png")
     assert preview.is_file()
     assert preview.stat().st_size > 0
+
+
+
+def test_parse_project_slug_from_drone_tm_url():
+    assert parse_project_slug("https://drone.hotosm.org/projects/duut-tasi-50m-metinaro") == "duut-tasi-50m-metinaro"
+
+
+def test_parse_project_slug_rejects_api_or_unrelated_url():
+    import pytest
+    from mosaic_core import DroneTMError
+
+    with pytest.raises(DroneTMError):
+        parse_project_slug("https://example.org/projects/duut-tasi-50m-metinaro")
