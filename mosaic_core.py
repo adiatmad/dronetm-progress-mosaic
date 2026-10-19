@@ -2,7 +2,7 @@ from __future__ import annotations
 import os, re, time
 from pathlib import Path
 from typing import Any
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse, unquote
 import numpy as np
 import rasterio
 import requests
@@ -28,6 +28,51 @@ def build_url(base_url: str, template: str, **values: Any) -> str:
     except KeyError as exc:
         raise DroneTMError(f"Unknown URL placeholder: {exc}") from exc
     return urljoin(base_url.rstrip("/") + "/", path.lstrip("/"))
+
+
+def parse_project_slug(project_url: str) -> str:
+    """Extract a DroneTM project slug from a project page URL."""
+    parsed = urlparse(project_url.strip())
+    if parsed.scheme != "https" or parsed.netloc.lower() != "drone.hotosm.org":
+        raise DroneTMError("Enter a DroneTM project URL like https://drone.hotosm.org/projects/project-slug.")
+    parts = [unquote(part) for part in parsed.path.split("/") if part]
+    if len(parts) != 2 or parts[0] != "projects" or not parts[1]:
+        raise DroneTMError("Project URL must use the /projects/<project-slug> format.")
+    return parts[1]
+
+
+def resolve_project_uuid(base_url: str, project_slug: str, token: str = "", timeout: int = 90) -> str:
+    """Resolve a public-facing project slug to the UUID required by orthophoto exports."""
+    url = build_url(base_url, "/api/projects/")
+    try:
+        response = make_session(token).get(
+            url,
+            params={"search": project_slug.replace("-", " "), "results_per_page": 100, "page": 1},
+            timeout=timeout,
+        )
+        response.raise_for_status()
+        payload = response.json()
+    except requests.HTTPError as exc:
+        code = exc.response.status_code if exc.response is not None else "unknown"
+        hint = " A DroneTM bearer token is required to resolve the project link." if code in (401, 403) else ""
+        raise DroneTMError(f"Could not resolve project link (HTTP {code}).{hint}") from exc
+    except requests.RequestException as exc:
+        raise DroneTMError(f"Could not reach DroneTM to resolve the project link: {exc}") from exc
+    except ValueError as exc:
+        raise DroneTMError("DroneTM project search did not return valid JSON.") from exc
+
+    results = payload.get("results", []) if isinstance(payload, dict) else []
+    for project in results:
+        if not isinstance(project, dict):
+            continue
+        if str(project.get("slug", "")).strip().lower() == project_slug.lower():
+            identifier = project.get("id") or project.get("project_id")
+            if identifier:
+                return str(identifier)
+    raise DroneTMError(
+        "The project link was not found in DroneTM project search. Check the URL and confirm the token can access this project."
+    )
+
 
 def make_session(token: str = "") -> requests.Session:
     from requests.adapters import HTTPAdapter
