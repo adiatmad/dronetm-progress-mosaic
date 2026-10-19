@@ -26,7 +26,7 @@ This packaging path is **experimental until a Windows build completes and the ex
 2. Download this repository: click **Code → Download ZIP**, then extract it.
 3. Double-click `run_windows.bat`. The first run creates a virtual environment and installs dependencies.
 4. The app opens in your browser. If it does not, open the URL printed in the terminal (usually `http://localhost:8501`).
-5. Enter your DroneTM API base URL and project ID. Use the base URL for your own DroneTM deployment, not the API path itself.
+5. Paste the DroneTM project page link (for example, `https://drone.hotosm.org/projects/duut-tasi-50m-metinaro`) and a DroneTM bearer token. The app resolves the public project slug to the internal UUID needed by the orthophoto export API. Keep the default base URL for HOT's public DroneTM site.
 6. Click **Load tasks**, review the task list and statuses, then click **Download selected orthophotos**.
 7. Click **Build mosaic**. Download the GeoTIFF, preview PNG, and task report from the app.
 
@@ -46,7 +46,7 @@ Defaults are based on the currently documented DroneTM-style routes, but deploym
 - Task-state path template: `/api/tasks/states/{project_id}`
 - Per-task orthophoto path template: `/api/projects/odm/export/{project_id}/{task_id}/orthophoto/`
 
-The app lets you change both templates. The base URL should look like `https://your-drone-tm.example.org`, without the route suffix. A bearer token is optional and is only sent to the server you configure. Do not paste credentials into public issues or screenshots.
+The app lets you change both templates. The base URL should look like `https://your-drone-tm.example.org`, without the route suffix. A bearer token is sent only to the DroneTM host you configure. Project UUID resolution uses the authenticated project-search endpoint; a token with access to the project is needed. Do not paste credentials into public issues or screenshots.
 
 The task parser accepts common list/dictionary response shapes. If your deployment returns an unusual schema, download the API response from your browser/API docs and open an issue with a **redacted** sample (remove tokens, private URLs, and personal data).
 
