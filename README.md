@@ -14,6 +14,14 @@ A local-first tool for turning completed DroneTM task orthophotos into a project
 
 ## Quick start (Windows)
 
+### Single-file desktop build (experimental)
+
+The `Windows desktop executable` GitHub Actions workflow builds `DroneTM-Progress-Mosaic.exe` on a Windows runner. To request a build, open **Actions → Windows desktop executable → Run workflow** in GitHub. Download the `DroneTM-Progress-Mosaic-Windows-x64` artifact from that run. The workflow also attaches the executable to a release when a `v*` tag is pushed.
+
+This packaging path is **experimental until a Windows build completes and the executable is smoke-tested**. A successful packaging step alone does not prove the app can connect to your DroneTM deployment or download a real orthophoto. Do not treat the executable as production-ready until those checks pass.
+
+### Source-run fallback
+
 1. Install **Python 3.11 or 3.12 (64-bit)** from [python.org](https://www.python.org/downloads/windows/). During setup, enable **Add Python to PATH**.
 2. Download this repository: click **Code → Download ZIP**, then extract it.
 3. Double-click `run_windows.bat`. The first run creates a virtual environment and installs dependencies.
