@@ -52,6 +52,8 @@ jobs:
           $item = Get-Item "dist/DroneTM-Progress-Mosaic.exe"
           if ($item.Length -lt 10000000) { throw "Executable is unexpectedly small ($($item.Length) bytes)." }
           Get-FileHash "dist/DroneTM-Progress-Mosaic.exe" -Algorithm SHA256 | Format-List
+          & $item.FullName --self-test
+          if ($LASTEXITCODE -ne 0) { throw "Bundled dependency import self-test failed with exit code $LASTEXITCODE." }
 
       - name: Smoke-test bundled executable
         shell: pwsh
