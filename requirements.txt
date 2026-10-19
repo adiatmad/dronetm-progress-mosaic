@@ -1,0 +1,6 @@
+streamlit>=1.40,<2
+requests>=2.32,<3
+pandas>=2.2,<4
+rasterio>=1.4,<2
+numpy>=1.26,<3
+Pillow>=10,<13
