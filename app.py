@@ -12,14 +12,14 @@ st.caption("Download completed-task orthophotos, build a georeferenced mosaic, a
 
 with st.sidebar:
     st.header("DroneTM connection")
-    base_url = st.text_input("DroneTM base URL", value="https://drone.hotosm.org").strip().rstrip("/")
+    base_url = st.text_input("DroneTM base URL", value="https://api.drone.hotosm.org").strip().rstrip("/")
     project_url = st.text_input("DroneTM project link", value="https://drone.hotosm.org/projects/duut-tasi-50m-metinaro", help="Paste the project page URL, not an API URL.").strip()
     token = st.text_input("Bearer token (optional)", type="password", help="Only sent to the DroneTM host above.")
     timeout = st.number_input("Request timeout (seconds)", min_value=15, max_value=600, value=90, step=15)
     st.divider()
     st.subheader("API route templates")
-    tasks_path = st.text_input("Task states path", value="/api/tasks/states/{project_id}")
-    photo_path = st.text_input("Task orthophoto path", value="/api/projects/odm/export/{project_id}/{task_id}/orthophoto/")
+    tasks_path = st.text_input("Task states path", value="/tasks/states/{project_id}")
+    photo_path = st.text_input("Task orthophoto path", value="/projects/odm/export/{project_id}/{task_id}/orthophoto/")
     st.caption("If a route returns 404, check your DroneTM instance's API docs and edit the template.")
 
 if not project_url:
