@@ -58,7 +58,7 @@ if load_clicked:
     else:
         with st.spinner("Contacting DroneTM and reading task states…"):
             try:
-                tasks, _payload = fetch_tasks(base_url, project_id, tasks_path, token)
+                tasks, _payload = fetch_tasks(base_url, project_id, tasks_path, token, int(timeout))
                 st.session_state.task_records = tasks
                 st.session_state.task_project_key = project_key
                 st.success("Loaded " + str(len(tasks)) + " task records.")
