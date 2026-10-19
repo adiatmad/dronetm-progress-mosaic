@@ -42,36 +42,27 @@ def parse_project_slug(project_url: str) -> str:
 
 
 def resolve_project_uuid(base_url: str, project_slug: str, token: str = "", timeout: int = 90) -> str:
-    """Resolve a public-facing project slug to the UUID required by orthophoto exports."""
-    url = build_url(base_url, "/api/projects/")
+    """Resolve a public project slug to the UUID required by orthophoto exports."""
+    url = build_url(base_url, "/api/projects/{project_id}", project_id=project_slug)
     try:
-        response = make_session(token).get(
-            url,
-            params={"search": project_slug.replace("-", " "), "results_per_page": 100, "page": 1},
-            timeout=timeout,
-        )
+        response = make_session(token).get(url, timeout=timeout)
         response.raise_for_status()
         payload = response.json()
     except requests.HTTPError as exc:
         code = exc.response.status_code if exc.response is not None else "unknown"
-        hint = " A DroneTM bearer token is required to resolve the project link." if code in (401, 403) else ""
+        hint = " Check that the token can access this project." if code in (401, 403) else " Check the project link and DroneTM base URL." if code == 404 else ""
         raise DroneTMError(f"Could not resolve project link (HTTP {code}).{hint}") from exc
     except requests.RequestException as exc:
         raise DroneTMError(f"Could not reach DroneTM to resolve the project link: {exc}") from exc
     except ValueError as exc:
-        raise DroneTMError("DroneTM project search did not return valid JSON.") from exc
+        raise DroneTMError("DroneTM project detail did not return valid JSON.") from exc
 
-    results = payload.get("results", []) if isinstance(payload, dict) else []
-    for project in results:
-        if not isinstance(project, dict):
-            continue
-        if str(project.get("slug", "")).strip().lower() == project_slug.lower():
-            identifier = project.get("id") or project.get("project_id")
-            if identifier:
-                return str(identifier)
-    raise DroneTMError(
-        "The project link was not found in DroneTM project search. Check the URL and confirm the token can access this project."
-    )
+    if not isinstance(payload, dict):
+        raise DroneTMError("DroneTM project detail returned an unexpected response.")
+    identifier = payload.get("id") or payload.get("project_id")
+    if not identifier:
+        raise DroneTMError("DroneTM project detail did not contain a project UUID.")
+    return str(identifier)
 
 
 def make_session(token: str = "") -> requests.Session:
