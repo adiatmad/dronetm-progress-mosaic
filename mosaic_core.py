@@ -43,7 +43,7 @@ def parse_project_slug(project_url: str) -> str:
 
 def resolve_project_uuid(base_url: str, project_slug: str, token: str = "", timeout: int = 90) -> str:
     """Resolve a public project slug to the UUID required by orthophoto exports."""
-    url = build_url(base_url, "/api/projects/{project_id}", project_id=project_slug)
+    url = build_url(base_url, "/projects/{project_id}", project_id=project_slug)
     try:
         response = make_session(token).get(url, timeout=timeout)
         response.raise_for_status()
@@ -52,10 +52,10 @@ def resolve_project_uuid(base_url: str, project_slug: str, token: str = "", time
         code = exc.response.status_code if exc.response is not None else "unknown"
         hint = " Check that the token can access this project." if code in (401, 403) else " Check the project link and DroneTM base URL." if code == 404 else ""
         raise DroneTMError(f"Could not resolve project link (HTTP {code}).{hint}") from exc
-    except requests.RequestException as exc:
-        raise DroneTMError(f"Could not reach DroneTM to resolve the project link: {exc}") from exc
     except ValueError as exc:
-        raise DroneTMError("DroneTM project detail did not return valid JSON.") from exc
+        raise DroneTMError("DroneTM project detail did not return valid JSON. Check that the base URL points to the API server, not the web frontend.") from exc
+    except requests.RequestException as exc:
+        raise DroneTMError(f"Could not reach DroneTM API to resolve the project link: {exc}") from exc
 
     if not isinstance(payload, dict):
         raise DroneTMError("DroneTM project detail returned an unexpected response.")
