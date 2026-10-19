@@ -62,7 +62,7 @@ if load_clicked:
         with st.spinner("Contacting DroneTM and reading task states…"):
             try:
                 resolved_uuid = resolve_project_uuid(base_url, project_id, token, int(timeout))
-                tasks, _payload = fetch_tasks(base_url, project_id, tasks_path, token, int(timeout))
+                tasks, _payload = fetch_tasks(base_url, resolved_uuid, tasks_path, token, int(timeout))
                 st.session_state.task_records = tasks
                 st.session_state.task_project_key = project_key
                 st.session_state.resolved_project_uuid = resolved_uuid
