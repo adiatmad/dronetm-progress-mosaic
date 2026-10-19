@@ -22,14 +22,15 @@ with st.sidebar:
     photo_path = st.text_input("Task orthophoto path", value="/api/projects/odm/export/{project_id}/{task_id}/orthophoto/")
     st.caption("If a route returns 404, check your DroneTM instance's API docs and edit the template.")
 
-if not project_id:
-    st.info("Enter a project ID in the sidebar to begin.")
-    st.markdown("**Workflow**\n1. Load and review task states.\n2. Select completed tasks.\n3. Download imagery; valid cached files are reused.\n4. Build the mosaic and download the GeoTIFF and report.")
+if not project_url:
+    st.info("Paste a DroneTM project link in the sidebar to begin.")
+    st.markdown("**Workflow**\n1. Load task states from the project link.\n2. Review completed tasks.\n3. Download orthophotos; valid cached files are reused.\n4. Build the mosaic and download the GeoTIFF and report.")
     st.stop()
 
 try:
+    project_id = parse_project_slug(project_url)
     project_key = safe_id(project_id)
-except ValueError as exc:
+except (ValueError, DroneTMError) as exc:
     st.error(str(exc))
     st.stop()
 
@@ -45,6 +46,8 @@ if "task_project_key" not in st.session_state:
     st.session_state.task_project_key = None
 if "mosaic_summary" not in st.session_state:
     st.session_state.mosaic_summary = {}
+if "resolved_project_uuid" not in st.session_state:
+    st.session_state.resolved_project_uuid = None
 
 col_a, col_b = st.columns([1, 3])
 with col_a:
@@ -58,10 +61,12 @@ if load_clicked:
     else:
         with st.spinner("Contacting DroneTM and reading task states…"):
             try:
+                resolved_uuid = resolve_project_uuid(base_url, project_id, token, int(timeout))
                 tasks, _payload = fetch_tasks(base_url, project_id, tasks_path, token, int(timeout))
                 st.session_state.task_records = tasks
                 st.session_state.task_project_key = project_key
-                st.success("Loaded " + str(len(tasks)) + " task records.")
+                st.session_state.resolved_project_uuid = resolved_uuid
+                st.success("Loaded " + str(len(tasks)) + " task records for " + project_id + ".")
             except DroneTMError as exc:
                 st.error(str(exc))
 
