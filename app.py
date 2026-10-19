@@ -139,7 +139,7 @@ if mosaic_path.exists() and is_valid_raster(mosaic_path):
     if preview_path.exists():
         st.image(str(preview_path), caption="Quicklook only — use the GeoTIFF for geospatial analysis.", use_container_width=True)
     with open(mosaic_path, "rb") as handle:
-        st.download_button("Download mosaic GeoTIFF", data=handle.read(),
+        st.download_button("Download mosaic GeoTIFF", data=handle,
                            file_name="project_" + project_key + "_mosaic.tif", mime="image/tiff",
                            use_container_width=True)
     if preview_path.exists():
