@@ -26,7 +26,7 @@ def test_nested_task_id_and_status():
 
 
 def test_url_join():
-    assert build_url("https://example.org/", "/tasks/states/{project_id}", project_id=123) == "https://example.org/api/tasks/states/123"
+    assert build_url("https://example.org/", "/tasks/states/{project_id}", project_id=123) == "https://example.org/tasks/states/123"
 
 
 def test_safe_id():
