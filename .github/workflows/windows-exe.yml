@@ -43,7 +43,7 @@ jobs:
       - name: Build single-file executable
         shell: pwsh
         run: |
-          pyinstaller --noconfirm --clean --onefile --name DroneTM-Progress-Mosaic --add-data "app.py;." --add-data "mosaic_core.py;." --collect-all streamlit --collect-all rasterio --collect-all numpy --collect-all pandas --collect-all PIL --collect-all altair --collect-all pydeck --collect-all watchdog --collect-all tornado --collect-all requests --copy-metadata streamlit --copy-metadata rasterio --copy-metadata pandas --copy-metadata numpy --copy-metadata requests --hidden-import mosaic_core desktop_launcher.py
+          pyinstaller --noconfirm --clean --onefile --name DroneTM-Progress-Mosaic --add-data "app.py;." --add-data "gui_app.py;." --add-data "mosaic_core.py;." --collect-all streamlit --collect-all rasterio --collect-all numpy --collect-all pandas --collect-all PIL --collect-all altair --collect-all pydeck --collect-all watchdog --collect-all tornado --collect-all requests --copy-metadata streamlit --copy-metadata rasterio --copy-metadata pandas --copy-metadata numpy --copy-metadata requests --hidden-import mosaic_core desktop_launcher.py
 
       - name: Verify executable exists
         shell: pwsh
@@ -55,30 +55,12 @@ jobs:
           & $item.FullName --self-test
           if ($LASTEXITCODE -ne 0) { throw "Bundled dependency import self-test failed with exit code $LASTEXITCODE." }
 
-      - name: Smoke-test bundled executable
+      - name: Verify executable is configured for native GUI mode
         shell: pwsh
         run: |
-          $stdout = Join-Path $env:RUNNER_TEMP "mosaic-stdout.log"
-          $stderr = Join-Path $env:RUNNER_TEMP "mosaic-stderr.log"
-          $process = Start-Process -FilePath "dist/DroneTM-Progress-Mosaic.exe" -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
-          try {
-            $healthy = $false
-            for ($i = 0; $i -lt 30; $i++) {
-              Start-Sleep -Seconds 2
-              if ($process.HasExited) { break }
-              try {
-                $response = Invoke-WebRequest -Uri "http://127.0.0.1:8501/_stcore/health" -UseBasicParsing -TimeoutSec 3
-                if ($response.StatusCode -eq 200 -and $response.Content -match "ok") { $healthy = $true; break }
-              } catch {}
-            }
-            if (!$healthy) {
-              if (Test-Path $stdout) { Get-Content $stdout }
-              if (Test-Path $stderr) { Get-Content $stderr }
-              throw "Bundled executable did not serve the Streamlit health endpoint."
-            }
-          } finally {
-            if (!$process.HasExited) { Stop-Process -Id $process.Id -Force }
-          }
+          $source = Get-Content "desktop_launcher.py" -Raw
+          if ($source -match "127\.0\.0\.1|streamlit\.web|webbrowser\.open") { throw "Desktop launcher still contains localhost/browser startup." }
+          if ($source -notmatch "gui_app") { throw "Desktop launcher does not target gui_app.py." }
 
       - name: Upload executable artifact
         uses: actions/upload-artifact@v4
