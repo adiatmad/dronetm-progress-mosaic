@@ -39,6 +39,34 @@ py -3.11 -m venv .venv
 .venv\Scripts\python.exe -m streamlit run app.py
 ```
 
+## One-click local workflows (Windows)
+
+After extracting the repository into your local project folder, you can use these two separate launchers:
+
+- **`launch_latest.vbs`** — double-click to check GitHub's latest `main` commit, update the application files when the commit changes, install/update dependencies only when required, then start the local Streamlit app. It uses the full Windows PowerShell path, so PowerShell does not need to be on PATH.
+- **`rebuild_cog.bat`** — double-click to rebuild `mosaic.vrt` and a physical `mosaic.tif` Cloud Optimized GeoTIFF from existing local `task_*.tif` files. It uses the project's default `data/project_duut-tasi-50m-metinaro/orthophotos` folder; if that folder is missing, it asks you for the source folder.
+
+### Updater safety
+
+The updater downloads a commit-pinned GitHub archive over HTTPS, checks for required application files, stages changes, and attempts to restore overwritten application files if an update or dependency installation fails. It preserves `data/`, `.venv/`, `.git/`, `.env`, `.streamlit/`, local GeoTIFFs, and the updater's local commit marker. It does not delete files that are absent from the new repository archive. The first launch needs internet access and a supported 64-bit Python 3.11 or 3.12 installation.
+
+### COG rebuild behavior
+
+The COG launcher:
+1. Checks that local `task_*.tif` inputs exist and at least 60 GiB is free on the output drive. This is a minimum safety gate, not a guarantee that every mosaic will fit.
+2. Builds a strict VRT candidate with `-resolution average`, creates a DEFLATE COG candidate with BigTIFF enabled, and runs `gdal driver cog validate`.
+3. Replaces the final `mosaic.vrt` and `mosaic.tif` only after validation succeeds. Existing final outputs are retained as timestamped backups if replacement succeeds; a failed replacement attempts rollback.
+4. Writes a build log in the project output folder.
+
+The script does not download task imagery, alter source orthophotos, or upload to OpenAerialMap. The current overlap behavior is standard GDAL VRT source priority, **not alpha-aware blending**. Review the mosaic preview, coverage, gaps, and seams before publication. If you need alpha-aware blending, treat that as a separate implementation requiring a verified blending method and test imagery.
+
+### Acceptance checks before relying on these launchers
+
+- Run `python -m pytest -q` for the existing application tests and launcher-contract tests.
+- On Windows, test the VBS updater once with internet access and a supported Python installation; verify that `data/` and `.venv/` remain in place.
+- Test the COG launcher with a small disposable folder of test rasters before using the full project. Verify COG validation, output metadata, and backup/rollback behavior.
+- Re-run each launcher to confirm the no-update path works. No OAM upload should occur.
+
 ## API settings
 
 Defaults are based on the currently documented DroneTM-style routes, but deployments can differ. Check the API docs for your instance if requests return 404 or 401.
