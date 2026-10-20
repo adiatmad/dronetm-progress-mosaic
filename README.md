@@ -39,6 +39,34 @@ py -3.11 -m venv .venv
 .venv\Scripts\python.exe -m streamlit run app.py
 ```
 
+## OSGeo4W Shell workflow (GDAL VRT + COG)
+
+This command-line path keeps the repository separate from `stac-browser-wrapper`. It uses the existing Python downloader for DroneTM API access, cache validation, and the task report, then invokes GDAL command-line tools from OSGeo4W Shell to build `mosaic.vrt` and a physical COG at `mosaic.tif`. It never uploads to OpenAerialMap.
+
+Requirements:
+- Run from **OSGeo4W Shell** with `gdalinfo`, `gdalwarp`, `gdalbuildvrt`, and `gdal_translate` available.
+- The Python interpreter used in this shell must have the dependencies in `requirements.txt` installed. Do not assume OSGeo4W's Python and the regular Windows Python share packages.
+- `gdal_translate -of COG` must be supported by the installed GDAL build.
+
+From the repository folder, run:
+
+```cmd
+python osgeo4w_mosaic.py --project-url "https://drone.hotosm.org/projects/duut-tasi-50m-metinaro"
+```
+
+The token is prompted securely by the existing downloader if needed. Avoid passing tokens as command-line arguments because they may be visible in process listings.
+
+Outputs:
+- `mosaic.vrt`: local virtual mosaic
+- `mosaic.tif`: physical Cloud Optimized GeoTIFF
+- `preview.png`: quicklook
+- `task_report.csv`: current-run download status
+- `oam_preparation/gdalinfo.json` and `oam_preparation/readiness_report.json`: local raster metadata and a checklist of OAM metadata still requiring review
+
+The script validates the COG by checking that `gdalinfo -json` reports `IMAGE_STRUCTURE.LAYOUT=COG` and that the COG dimensions match the VRT. It uses the first valid orthophoto's CRS as the target and creates persistent warped VRTs under `gdal_work/warped/` when a source CRS differs. Keep the orthophotos and `gdal_work` folder if you need to reopen the VRT later. Existing download cache and task report are preserved if GDAL processing fails. No upload or public sharing is performed.
+
+This workflow has automated unit tests, but it still requires a real OSGeo4W Shell acceptance run against your project before the output can be considered verified on your machine.
+
 ## API settings
 
 Defaults are based on the currently documented DroneTM-style routes, but deployments can differ. Check the API docs for your instance if requests return 404 or 401.
