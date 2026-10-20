@@ -98,11 +98,9 @@ def show_status(args: argparse.Namespace, root: Path) -> int:
     if report_path.exists():
         print(f"Latest task report: {report_path}")
     mosaic = project_dir / "mosaic.tif"
-    cog = project_dir / "mosaic.tif"
     if mosaic.exists():
-        print(f"Mosaic output exists: {mosaic} ({mosaic.stat().st_size / (1024**3):.2f} GiB)")
-    if cog.exists():
-        print("For the validated GDAL Cloud Optimized GeoTIFF workflow, run rebuild_cog.bat separately.")
+        print(f"Existing mosaic output: {mosaic} ({mosaic.stat().st_size / (1024**3):.2f} GiB)")
+        print("If you need the validated GDAL Cloud Optimized GeoTIFF, run rebuild_cog.bat separately.")
     print("Local-only mode: this command does not upload to OpenAerialMap.")
     return 0
 
