@@ -165,88 +165,93 @@ def build_gdal_mosaic(
         stage_id = uuid.uuid4().hex
         staged_vrt = vrt_path.with_name(f".{vrt_path.stem}.stage-{stage_id}.vrt")
         staged_cog = cog_path.with_name(f".{cog_path.stem}.stage-{stage_id}.tif")
-        run_gdal([
-            "gdalbuildvrt", "-overwrite", "-input_file_list", str(source_list), str(staged_vrt)
-        ])
-        vrt_info = _validated_info(staged_vrt)
-        run_gdal([
-            "gdal_translate", "-of", "COG",
-            "-co", "COMPRESS=DEFLATE",
-            "-co", "BIGTIFF=IF_SAFER",
-            "-co", "OVERVIEWS=AUTO",
-            str(staged_vrt), str(staged_cog),
-        ])
-        cog_info = _validated_info(staged_cog)
-        layout = str(cog_info.get("metadata", {}).get("IMAGE_STRUCTURE", {}).get("LAYOUT", "")).upper()
-        if layout != "COG":
-            raise GDALProcessingError(
-                "GDAL created a GeoTIFF but did not report IMAGE_STRUCTURE LAYOUT=COG. "
-                "The existing final outputs were left in place. Check the GDAL version and COG driver."
-            )
-
-        width, height = map(int, cog_info["size"])
-        bands = len(cog_info.get("bands", []))
-        if width != int(vrt_info["size"][0]) or height != int(vrt_info["size"][1]):
-            raise GDALProcessingError("The COG dimensions do not match the staged VRT dimensions.")
-        if bands != len(vrt_info.get("bands", [])):
-            raise GDALProcessingError("The COG band count does not match the staged VRT.")
-
-        report = {
-            "schema_version": 1,
-            "status": "RASTER_VALIDATION_PASSED_METADATA_REVIEW_REQUIRED",
-            "upload_performed": False,
-            "human_review_required": True,
-            "source_count": len(paths),
-            "source_files": [str(path) for path in paths],
-            "source_crs": sorted(set(source_crs)),
-            "output_crs": effective_crs,
-            "vrt": {
-                "path": str(vrt_path),
-                "size": vrt_info["size"],
-                "band_count": len(vrt_info.get("bands", [])),
-            },
-            "cog": {
-                "path": str(cog_path),
-                "size": cog_info["size"],
-                "band_count": bands,
-                "layout": layout,
-                "driver": cog_info.get("driverShortName"),
-                "size_bytes": staged_cog.stat().st_size,
-                "corner_coordinates": cog_info.get("cornerCoordinates"),
-            },
-            "checks": {
-                "all_sources_readable_and_georeferenced": True,
-                "mixed_crs_handled_explicitly": bool(target_crs or len(set(source_crs)) > 1),
-                "vrt_readable_and_georeferenced": True,
-                "cog_readable_and_georeferenced": True,
-                "cog_layout_reported_by_gdal": layout == "COG",
-                "vrt_and_cog_dimensions_match": True,
-                "vrt_and_cog_band_counts_match": True,
-            },
-            "metadata_to_confirm_before_oam": [
-                "title",
-                "capture date or date range",
-                "license and usage rights",
-                "provider and attribution",
-                "description and processing method",
-                "coverage footprint and spatial reference",
-                "resolution and band interpretation",
-                "duplicate/overlap check against existing imagery",
-            ],
-            "notes": [
-                "This report checks local raster properties only; it does not guarantee OAM acceptance.",
-                "The VRT depends on the listed source files remaining at their current paths.",
-                "No imagery or metadata was uploaded to OpenAerialMap.",
-            ],
-        }
-        staged_report = work_dir / "readiness_report.json"
-        staged_gdalinfo = work_dir / "gdalinfo.json"
-        staged_report.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-        staged_gdalinfo.write_text(json.dumps(cog_info, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-        _atomic_replace_outputs(staged_vrt, staged_cog, vrt_path, cog_path)
-        # Install the reports last, after the raster outputs have passed validation.
-        os.replace(staged_report, readiness_report_path)
-        os.replace(staged_gdalinfo, gdalinfo_report_path)
+        try:
+            run_gdal([
+                "gdalbuildvrt", "-overwrite", "-input_file_list", str(source_list), str(staged_vrt)
+            ])
+            vrt_info = _validated_info(staged_vrt)
+            run_gdal([
+                "gdal_translate", "-of", "COG",
+                "-co", "COMPRESS=DEFLATE",
+                "-co", "BIGTIFF=IF_SAFER",
+                "-co", "OVERVIEWS=AUTO",
+                str(staged_vrt), str(staged_cog),
+            ])
+            cog_info = _validated_info(staged_cog)
+            layout = str(cog_info.get("metadata", {}).get("IMAGE_STRUCTURE", {}).get("LAYOUT", "")).upper()
+            if layout != "COG":
+                raise GDALProcessingError(
+                    "GDAL created a GeoTIFF but did not report IMAGE_STRUCTURE LAYOUT=COG. "
+                    "The existing final outputs were left in place. Check the GDAL version and COG driver."
+                )
+    
+            width, height = map(int, cog_info["size"])
+            bands = len(cog_info.get("bands", []))
+            if width != int(vrt_info["size"][0]) or height != int(vrt_info["size"][1]):
+                raise GDALProcessingError("The COG dimensions do not match the staged VRT dimensions.")
+            if bands != len(vrt_info.get("bands", [])):
+                raise GDALProcessingError("The COG band count does not match the staged VRT.")
+    
+            report = {
+                "schema_version": 1,
+                "status": "RASTER_VALIDATION_PASSED_METADATA_REVIEW_REQUIRED",
+                "upload_performed": False,
+                "human_review_required": True,
+                "source_count": len(paths),
+                "source_files": [str(path) for path in paths],
+                "source_crs": sorted(set(source_crs)),
+                "output_crs": effective_crs,
+                "vrt": {
+                    "path": str(vrt_path),
+                    "size": vrt_info["size"],
+                    "band_count": len(vrt_info.get("bands", [])),
+                },
+                "cog": {
+                    "path": str(cog_path),
+                    "size": cog_info["size"],
+                    "band_count": bands,
+                    "layout": layout,
+                    "driver": cog_info.get("driverShortName"),
+                    "size_bytes": staged_cog.stat().st_size,
+                    "corner_coordinates": cog_info.get("cornerCoordinates"),
+                },
+                "checks": {
+                    "all_sources_readable_and_georeferenced": True,
+                    "mixed_crs_handled_explicitly": bool(target_crs or len(set(source_crs)) > 1),
+                    "vrt_readable_and_georeferenced": True,
+                    "cog_readable_and_georeferenced": True,
+                    "cog_layout_reported_by_gdal": layout == "COG",
+                    "vrt_and_cog_dimensions_match": True,
+                    "vrt_and_cog_band_counts_match": True,
+                },
+                "metadata_to_confirm_before_oam": [
+                    "title",
+                    "capture date or date range",
+                    "license and usage rights",
+                    "provider and attribution",
+                    "description and processing method",
+                    "coverage footprint and spatial reference",
+                    "resolution and band interpretation",
+                    "duplicate/overlap check against existing imagery",
+                ],
+                "notes": [
+                    "This report checks local raster properties only; it does not guarantee OAM acceptance.",
+                    "The VRT depends on the listed source files remaining at their current paths.",
+                    "No imagery or metadata was uploaded to OpenAerialMap.",
+                ],
+            }
+            staged_report = work_dir / "readiness_report.json"
+            staged_gdalinfo = work_dir / "gdalinfo.json"
+            staged_report.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+            staged_gdalinfo.write_text(json.dumps(cog_info, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+            _atomic_replace_outputs(staged_vrt, staged_cog, vrt_path, cog_path)
+            # Install the reports last, after the raster outputs have passed validation.
+            os.replace(staged_report, readiness_report_path)
+            os.replace(staged_gdalinfo, gdalinfo_report_path)
+        finally:
+            # Failed GDAL runs can leave large partial files; never leave those staging outputs behind.
+            staged_vrt.unlink(missing_ok=True)
+            staged_cog.unlink(missing_ok=True)
 
     return {
         "path": str(cog_path),
