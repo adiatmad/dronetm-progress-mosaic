@@ -8,9 +8,61 @@ A local-first tool for turning completed DroneTM task orthophotos into a project
 - Finds task records and lets you select which states count as completed.
 - Downloads task orthophotos with retries and resumable local caching.
 - Validates downloaded rasters before keeping them.
-- Merges compatible GeoTIFFs into a georeferenced mosaic, handling different source CRSs by warping to a common CRS.
+- Uses GDAL command-line tools to create a VRT and physical Cloud Optimized GeoTIFF (COG); mixed CRSs require an explicit target CRS.
 - Shows a preview and exports a CSV task/download report.
 - Keeps the download cache so a rerun does not need to download files that are already valid.
+
+## Command-line workflow with OSGeo4W Shell (GDAL CLI)
+
+This workflow is separate from the Streamlit interface. It uses the Python environment that has this repository's requirements installed for DroneTM API access, cached-raster checks, and preview generation, while calling GDAL command-line tools supplied by QGIS/OSGeo4W for VRT and COG processing.
+
+1. Open **OSGeo4W Shell** from your QGIS installation.
+2. Confirm GDAL tools are available:
+
+   ```bat
+   gdalinfo --version
+   gdalbuildvrt --version
+   gdal_translate --version
+   gdalwarp --version
+   ```
+
+3. Change to the extracted repository folder (quote paths that contain spaces), then prepare the project's normal Python environment if you have not already done so:
+
+   ```bat
+   cd /d "C:\path\to\dronetm-progress-mosaic"
+   py -3.12 -m venv .venv
+   .venv\Scripts\python.exe -m pip install -r requirements.txt
+   ```
+
+   If you already have a working project virtual environment, reuse it instead of recreating it. The Python interpreter must have the listed project requirements installed; OSGeo4W supplies the GDAL executables through the shell's `PATH`.
+
+4. Run the downloader and local mosaic builder:
+
+   ```bat
+   .venv\Scripts\python.exe download_all_processed.py --project-url "https://drone.hotosm.org/projects/duut-tasi-50m-metinaro"
+   ```
+
+   Enter a DroneTM token only if the prompt or your deployment requires one. Do not put tokens in screenshots, shell history, or public issues.
+
+5. If the source orthophotos use different coordinate reference systems, the command stops rather than guessing a target CRS. Only after verifying the intended project CRS, rerun with an explicit target, for example:
+
+   ```bat
+   .venv\Scripts\python.exe download_all_processed.py --project-url "https://drone.hotosm.org/projects/duut-tasi-50m-metinaro" --target-crs "EPSG:32748"
+   ```
+
+   Use EPSG:32748 only if it is confirmed as the correct target for these data. Reprojection creates persistent VRT intermediates under `warped_sources/` because the final mosaic VRT references them.
+
+### GDAL outputs
+
+A successful local processing run produces:
+
+- `mosaic.vrt`: virtual mosaic; it depends on the source orthophotos (and, when reprojecting, the persistent warped VRT intermediates).
+- `mosaic.tif`: physical GeoTIFF written through GDAL's COG driver with DEFLATE compression and automatic overviews.
+- `preview.png`: quicklook preview.
+- `oam_preparation/gdalinfo.json`: GDAL's structured metadata report for the output COG.
+- `oam_preparation/readiness_report.json`: local raster checks and a list of OAM metadata that still needs human review.
+
+The script checks that the output is readable and georeferenced, that GDAL reports `IMAGE_STRUCTURE: LAYOUT=COG`, and that the VRT and COG dimensions and band counts agree. This is not a guarantee of OAM acceptance. **Nothing is uploaded to OAM.**
 
 ## Quick start (Windows)
 
@@ -56,8 +108,10 @@ The task parser accepts common list/dictionary response shapes. If your deployme
 Files are saved under `data/project_<PROJECT_ID>/`:
 
 - `orthophotos/`: validated per-task GeoTIFFs
-- `mosaic.tif`: generated mosaic
+- `mosaic.vrt`: virtual mosaic referencing the cached source orthophotos
+- `mosaic.tif`: physical Cloud Optimized GeoTIFF (COG) built with GDAL
 - `preview.png`: quicklook image
+- `oam_preparation/gdalinfo.json` and `oam_preparation/readiness_report.json`: local validation and later-upload preparation; neither triggers an upload
 - `task_report.csv`: status, result (`DOWNLOADED`, `REUSED`, or `FAILED`), download outcome, and file path for each task
 
 **Safe to rerun:** every run refreshes DroneTM's task list. A valid cached GeoTIFF is reused without a network download; failed or invalid files are retried on the next run, and newly processed tasks are picked up automatically. The report is a current-run snapshot, not a historical log. A failed download stays visible as `FAILED`; it is not permanently skipped or treated as a valid image. A retry can only succeed once DroneTM actually serves a valid orthophoto. Delete that project's folder only if you intentionally want to clear its local cache and generated outputs. Large orthophotos can require substantial free disk space and memory; build the mosaic after enough source files have downloaded.
