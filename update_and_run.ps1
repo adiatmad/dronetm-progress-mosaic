@@ -108,6 +108,7 @@ try {
         Move-Item -LiteralPath $stateTemp -Destination $StatePath -Force
     }
 
+    $Updated = $false
     Write-Host ""
     Write-Host "Starting DroneTM Progress Mosaic. Local data folders are preserved."
     Write-Host "This app does not publish to OpenAerialMap automatically."
