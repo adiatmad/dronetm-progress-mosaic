@@ -58,9 +58,9 @@ Files are saved under `data/project_<PROJECT_ID>/`:
 - `orthophotos/`: validated per-task GeoTIFFs
 - `mosaic.tif`: generated mosaic
 - `preview.png`: quicklook image
-- `task_report.csv`: status, download outcome, and file path for each task
+- `task_report.csv`: status, result (`DOWNLOADED`, `REUSED`, or `FAILED`), download outcome, and file path for each task
 
-Re-running the download step reuses valid cached files. Delete that project's folder only if you intentionally want to clear its local cache and generated outputs. Large orthophotos can require substantial free disk space and memory; build the mosaic after enough source files have downloaded.
+**Safe to rerun:** every run refreshes DroneTM's task list. A valid cached GeoTIFF is reused without a network download; failed or invalid files are retried on the next run, and newly processed tasks are picked up automatically. The report is a current-run snapshot, not a historical log. A failed download stays visible as `FAILED`; it is not permanently skipped or treated as a valid image. A retry can only succeed once DroneTM actually serves a valid orthophoto. Delete that project's folder only if you intentionally want to clear its local cache and generated outputs. Large orthophotos can require substantial free disk space and memory; build the mosaic after enough source files have downloaded.
 
 ## Limitations (important)
 
