@@ -61,6 +61,7 @@ try {
             -not $skip
         }
 
+        $Updated = $true
         foreach ($file in $files) {
             $rel = $file.FullName.Substring($sourceRoot.FullName.Length).TrimStart('\','/')
             $destination = Join-Path $Root $rel
