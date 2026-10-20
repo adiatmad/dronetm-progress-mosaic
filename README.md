@@ -18,7 +18,7 @@ A local-first tool for turning completed DroneTM task orthophotos into a project
 
 The `Windows desktop executable` GitHub Actions workflow builds `DroneTM-Progress-Mosaic.exe` on a Windows runner. To request a build, open **Actions → Windows desktop executable → Run workflow** in GitHub. Download the `DroneTM-Progress-Mosaic-Windows-x64` artifact from that run. A `v*` tag also attaches the executable to a GitHub Release.
 
-This packaging path remains **experimental until a Windows build completes and the executable is smoke-tested**. The workflow runs unit tests and launches the bundled executable to check its local Streamlit health endpoint, but this does not prove it can connect to your DroneTM account or download a real orthophoto. The first real-project run remains an acceptance check.
+This packaging path remains **experimental until a Windows build completes and the executable is smoke-tested**. The workflow runs unit tests, verifies bundled dependency imports, and checks that the executable entry point targets the native Tkinter GUI rather than a localhost browser server. CI does not interact with the GUI or prove it can connect to your DroneTM account or download a real orthophoto. The first real-project run remains an acceptance check.
 
 ### Source-run fallback
 
