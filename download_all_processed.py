@@ -77,6 +77,9 @@ def main() -> int:
     print(f"Found {len(tasks)} task records; downloading/checking {len(completed)} completed/processed tasks.")
     report_rows = []
     succeeded = 0
+    downloaded = 0
+    reused = 0
+    failed = 0
     for index, task in enumerate(completed, 1):
         task_id = task["task_id"]
         destination = photo_dir / f"task_{safe_id(task_id)}.tif"
@@ -90,12 +93,22 @@ def main() -> int:
             token,
             timeout=max(args.timeout, 90),
         )
-        print(f"    {'OK' if ok else 'FAILED'}: {message}")
+        result = "FAILED"
+        if ok and message.startswith("Reused cached"):
+            result = "REUSED"
+            reused += 1
+        elif ok:
+            result = "DOWNLOADED"
+            downloaded += 1
+        else:
+            failed += 1
+        print(f"    {result}: {message}")
         succeeded += int(ok)
         report_rows.append({
             "task_id": task_id,
             "status": task.get("status", ""),
             "selected": True,
+            "result": result,
             "download_ok": ok,
             "message": message,
             "file_path": str(destination.resolve()) if ok else "",
@@ -103,6 +116,8 @@ def main() -> int:
 
     write_task_report(report_rows, report_path)
     print(f"\nFinished: {succeeded}/{len(completed)} orthophotos available.")
+    print(f"This run: {downloaded} newly downloaded; {reused} reused from cache; {failed} still unavailable.")
+    print("Failed tasks are retried automatically the next time you run this command; successful cached GeoTIFFs are not downloaded again.")
     print(f"Orthophotos: {photo_dir.resolve()}")
     print(f"Task report: {report_path.resolve()}")
 
