@@ -204,7 +204,7 @@ def main() -> int:
     print(f"Preview: {summary['preview']}")
     print(f"Dimensions: {summary['width']:,} x {summary['height']:,}; bands: {summary['bands']}; CRS: {summary['crs']}")
     print(f"COG size: {summary['size_bytes'] / 1048576:.1f} MiB; GDAL layout: {summary['cog_layout']}")
-    print(f"OAM preparation report: {summary["oam_report"]}")
+    print(f"OAM preparation report: {summary['oam_report']}")
     print("No OpenAerialMap upload was attempted.")
     return 0 if download.returncode == 0 else 1
 
