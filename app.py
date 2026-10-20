@@ -1,5 +1,6 @@
 from __future__ import annotations
 from pathlib import Path
+import os
 import pandas as pd
 import streamlit as st
 import rasterio
@@ -143,10 +144,14 @@ if mosaic_path.exists() and is_valid_raster(mosaic_path):
     st.subheader("Mosaic output")
     if preview_path.exists():
         st.image(str(preview_path), caption="Quicklook only — use the GeoTIFF for geospatial analysis.", use_container_width=True)
-    with open(mosaic_path, "rb") as handle:
-        st.download_button("Download mosaic GeoTIFF", data=handle,
-                           file_name="project_" + project_key + "_mosaic.tif", mime="image/tiff",
-                           use_container_width=True)
+    st.markdown("**GeoTIFF saved locally**")
+    st.code(str(mosaic_path.resolve()), language="text")
+    st.caption("Large GeoTIFFs are not loaded into memory for a browser download. Use the path above directly in QGIS, or open its folder in File Explorer.")
+    if st.button("Open mosaic output folder in File Explorer"):
+        try:
+            os.startfile(str(project_dir.resolve()))
+        except (AttributeError, OSError) as exc:
+            st.error("Could not open File Explorer: " + str(exc))
     if preview_path.exists():
         st.download_button("Download preview PNG", data=preview_path.read_bytes(),
                            file_name="project_" + project_key + "_preview.png", mime="image/png")
