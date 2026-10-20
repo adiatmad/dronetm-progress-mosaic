@@ -4,10 +4,10 @@ import argparse
 import getpass
 from pathlib import Path
 
+from gdal_mosaic import GDALProcessingError, build_gdal_mosaic
 from mosaic_core import (
     COMPLETED_DEFAULT,
     DroneTMError,
-    build_mosaic,
     create_preview,
     download_orthophoto,
     fetch_tasks,
@@ -41,6 +41,11 @@ def main() -> int:
         action="store_true",
         help="Only download orthophotos; do not build mosaic or preview",
     )
+    parser.add_argument(
+        "--target-crs",
+        default="",
+        help="Explicit target CRS (e.g. EPSG:32748) when reprojection is needed; never guessed",
+    )
     args = parser.parse_args()
 
     token = args.token.strip() or getpass.getpass(
@@ -53,7 +58,11 @@ def main() -> int:
     photo_dir.mkdir(parents=True, exist_ok=True)
     report_path = project_dir / "task_report.csv"
     mosaic_path = project_dir / "mosaic.tif"
+    vrt_path = project_dir / "mosaic.vrt"
     preview_path = project_dir / "preview.png"
+    oam_dir = project_dir / "oam_preparation"
+    readiness_report_path = oam_dir / "readiness_report.json"
+    gdalinfo_report_path = oam_dir / "gdalinfo.json"
 
     print(f"Project: {slug}")
     print("Resolving project ID and loading task states...")
@@ -134,22 +143,34 @@ def main() -> int:
         print("No valid GeoTIFFs are available; cannot build a mosaic.")
         return 1
 
-    print(f"\nBuilding progress mosaic from {len(available_paths)} valid orthophotos...")
+    print(f"\nBuilding GDAL VRT and Cloud Optimized GeoTIFF from {len(available_paths)} valid orthophotos...")
     try:
-        summary = build_mosaic(available_paths, mosaic_path)
+        summary = build_gdal_mosaic(
+            available_paths,
+            vrt_path,
+            mosaic_path,
+            readiness_report_path,
+            gdalinfo_report_path,
+            target_crs=args.target_crs or None,
+        )
         create_preview(mosaic_path, preview_path)
-        print("Mosaic built.")
-        print(f"GeoTIFF: {mosaic_path.resolve()}")
+        print("GDAL mosaic built and validated.")
+        print(f"VRT: {vrt_path.resolve()}")
+        print(f"Cloud Optimized GeoTIFF: {mosaic_path.resolve()}")
         print(f"Preview: {preview_path.resolve()}")
+        print(f"GDAL metadata: {gdalinfo_report_path.resolve()}")
+        print(f"OAM preparation report (review required): {readiness_report_path.resolve()}")
         print(
             f"Dimensions: {summary['width']:,} x {summary['height']:,} px; "
             f"bands: {summary['bands']}; CRS: {summary['crs']}; "
             f"source orthophotos: {summary['source_count']}; "
-            f"size: {summary['size_bytes'] / 1048576:.1f} MiB"
+            f"size: {summary['size_bytes'] / 1048576:.1f} MiB; "
+            f"COG layout: {summary['cog_layout']}"
         )
-    except DroneTMError as exc:
+    except (DroneTMError, GDALProcessingError) as exc:
         print(f"MOSAIC FAILED: {exc}")
         print("Downloaded orthophotos and task_report.csv are preserved.")
+        print("No OAM upload was attempted.")
         return 1
 
     if succeeded != len(completed):
@@ -161,6 +182,6 @@ def main() -> int:
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
-    except (DroneTMError, ValueError, OSError) as exc:
+    except (DroneTMError, GDALProcessingError, ValueError, OSError) as exc:
         print(f"ERROR: {exc}")
         raise SystemExit(1)
