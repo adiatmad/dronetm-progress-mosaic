@@ -252,7 +252,7 @@ def create_preview(mosaic_path: Path, preview_path: Path, max_dimension: int = 1
 def write_task_report(rows: list[dict[str, Any]], path: Path) -> Path:
     import csv
     path.parent.mkdir(parents=True, exist_ok=True)
-    columns = ["task_id", "status", "selected", "download_ok", "message", "file_path"]
+    columns = ["task_id", "status", "selected", "result", "download_ok", "message", "file_path"]
     with path.open("w", newline="", encoding="utf-8-sig") as handle:
         writer = csv.DictWriter(handle, fieldnames=columns, extrasaction="ignore")
         writer.writeheader()
