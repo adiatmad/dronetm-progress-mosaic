@@ -5,6 +5,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -158,8 +159,12 @@ def build_gdal_mosaic(
             "".join(f"{path}\n" for path in build_sources),
             encoding="utf-8",
         )
-        staged_vrt = work_dir / "mosaic.vrt"
-        staged_cog = work_dir / "mosaic.tif"
+        # Stage outputs beside their final destinations: gdalbuildvrt may encode source paths
+        # relative to the VRT location, so moving a VRT out of a temporary subdirectory would
+        # invalidate those references.
+        stage_id = uuid.uuid4().hex
+        staged_vrt = vrt_path.with_name(f".{vrt_path.stem}.stage-{stage_id}.vrt")
+        staged_cog = cog_path.with_name(f".{cog_path.stem}.stage-{stage_id}.tif")
         run_gdal([
             "gdalbuildvrt", "-overwrite", "-input_file_list", str(source_list), str(staged_vrt)
         ])
