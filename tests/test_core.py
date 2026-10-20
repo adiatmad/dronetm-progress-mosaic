@@ -1,10 +1,14 @@
 from pathlib import Path
+import csv
+import io
+
+import pytest
 
 import numpy as np
 import rasterio
 from rasterio.transform import from_origin
 
-from mosaic_core import build_mosaic, build_url, create_preview, normalize_tasks, parse_project_slug, safe_id
+from mosaic_core import build_mosaic, build_url, create_preview, download_orthophoto, normalize_tasks, parse_project_slug, safe_id, write_task_report
 
 
 def test_normalize_list_of_task_records():
@@ -98,3 +102,112 @@ def test_resolve_project_uuid_uses_project_detail_endpoint(monkeypatch):
         token="test-token",
         timeout=30,
     ) == "a8c7c6f0-6a4b-4f39-9db6-8f74e76e8c55"
+
+
+
+def _tiny_geotiff_bytes():
+    from rasterio.io import MemoryFile
+
+    profile = {
+        "driver": "GTiff", "height": 2, "width": 2, "count": 1,
+        "dtype": "uint8", "crs": "EPSG:3857", "transform": from_origin(0, 2, 1, 1),
+    }
+    with MemoryFile() as memory:
+        with memory.open(**profile) as dst:
+            dst.write(np.full((1, 2, 2), 7, dtype=np.uint8))
+        return memory.read()
+
+
+def test_download_reuses_valid_cached_geotiff_without_network(tmp_path, monkeypatch):
+    import mosaic_core
+
+    cached = tmp_path / "task_cached.tif"
+    cached.write_bytes(_tiny_geotiff_bytes())
+
+    def unexpected_network(*args, **kwargs):
+        raise AssertionError("Valid cached GeoTIFF should not trigger a network request")
+
+    monkeypatch.setattr(mosaic_core, "make_session", unexpected_network)
+    ok, message = download_orthophoto(
+        "https://api.drone.hotosm.org", "project-id", "task-id",
+        "/projects/odm/export/{project_id}/{task_id}/orthophoto/",
+        cached, timeout=1,
+    )
+    assert ok is True
+    assert message == "Reused cached GeoTIFF"
+
+
+def test_previously_failed_download_can_succeed_on_next_run(tmp_path, monkeypatch):
+    import requests
+    import mosaic_core
+
+    destination = tmp_path / "task_retry.tif"
+    raster_bytes = _tiny_geotiff_bytes()
+
+    class FailedResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def raise_for_status(self):
+            response = requests.Response()
+            response.status_code = 503
+            raise requests.HTTPError("503 Service Unavailable", response=response)
+
+    class SuccessfulResponse:
+        headers = {"content-type": "image/tiff"}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def raise_for_status(self):
+            return None
+
+        def iter_content(self, chunk_size):
+            yield raster_bytes
+
+    class FakeSession:
+        def __init__(self, response):
+            self.response = response
+
+        def get(self, *args, **kwargs):
+            return self.response
+
+    monkeypatch.setattr(mosaic_core, "make_session", lambda token="": FakeSession(FailedResponse()))
+    ok, message = download_orthophoto(
+        "https://api.drone.hotosm.org", "project-id", "task-id",
+        "/projects/odm/export/{project_id}/{task_id}/orthophoto/",
+        destination, timeout=1, attempts=1,
+    )
+    assert ok is False
+    assert not destination.exists()
+
+    monkeypatch.setattr(mosaic_core, "make_session", lambda token="": FakeSession(SuccessfulResponse()))
+    ok, message = download_orthophoto(
+        "https://api.drone.hotosm.org", "project-id", "task-id",
+        "/projects/odm/export/{project_id}/{task_id}/orthophoto/",
+        destination, timeout=1, attempts=1,
+    )
+    assert ok is True
+    assert message.startswith("Downloaded")
+    assert destination.exists()
+    assert mosaic_core.is_valid_raster(destination)
+
+
+def test_task_report_includes_download_result(tmp_path):
+    report = tmp_path / "task_report.csv"
+    write_task_report([{
+        "task_id": "task-1", "status": "IMAGE_PROCESSING_FINISHED",
+        "selected": True, "result": "REUSED", "download_ok": True,
+        "message": "Reused cached GeoTIFF", "file_path": "task-1.tif",
+    }], report)
+
+    with report.open(encoding="utf-8-sig", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    assert rows[0]["result"] == "REUSED"
+    assert rows[0]["download_ok"] == "True"
