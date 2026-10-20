@@ -4,7 +4,7 @@ $ProgressPreference = "SilentlyContinue"
 $Repo = "adiatmad/dronetm-progress-mosaic"
 $Root = [IO.Path]::GetFullPath($PSScriptRoot)
 $StatePath = Join-Path $Root ".launcher-state.json"
-$Required = @("app.py", "mosaic_core.py", "requirements.txt", "run_windows.bat")
+$Required = @("app.py", "cli.py", "mosaic_core.py", "requirements.txt", "run_windows.bat")
 $PreserveDirs = @("data", ".venv", ".git", ".streamlit", "__pycache__", ".pytest_cache")
 $PreserveFiles = @(".env", ".launcher-state.json")
 $TempRoot = Join-Path ([IO.Path]::GetTempPath()) ("dronetm-update-" + [guid]::NewGuid().ToString("N"))
@@ -111,11 +111,27 @@ try {
 
     $Updated = $false
     Write-Host ""
-    Write-Host "Starting DroneTM Progress Mosaic. Local data folders are preserved."
-    Write-Host "This app does not publish to OpenAerialMap automatically."
+    Write-Host "Choose how to run DroneTM Progress Mosaic:"
+    Write-Host "  1. Browser app (Streamlit on localhost)"
+    Write-Host "  2. CLI menu (no browser and no localhost server)"
+    Write-Host "  3. Exit"
+    do {
+        $choice = Read-Host "Enter 1, 2, or 3"
+    } while ($choice -notin @("1", "2", "3"))
+    if ($choice -eq "3") { exit 0 }
+
     Set-Location -LiteralPath $Root
-    & $venvPython -m streamlit run (Join-Path $Root "app.py")
-    if ($LASTEXITCODE -ne 0) { throw "Streamlit exited with code $LASTEXITCODE." }
+    if ($choice -eq "2") {
+        Write-Host "Starting browser-free CLI. Data remains in the local data folder."
+        Write-Host "This workflow does not publish to OpenAerialMap."
+        & $venvPython (Join-Path $Root "cli.py")
+        if ($LASTEXITCODE -ne 0) { throw "CLI exited with code $LASTEXITCODE." }
+    } else {
+        Write-Host "Starting the local browser app. Large GeoTIFFs are no longer loaded into download-button memory."
+        Write-Host "This app does not publish to OpenAerialMap automatically."
+        & $venvPython -m streamlit run (Join-Path $Root "app.py")
+        if ($LASTEXITCODE -ne 0) { throw "Streamlit exited with code $LASTEXITCODE." }
+    }
 }
 catch {
     Write-Host ""

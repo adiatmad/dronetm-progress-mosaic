@@ -43,12 +43,28 @@ py -3.11 -m venv .venv
 
 After extracting the repository into your local project folder, you can use these two separate launchers:
 
-- **`launch_latest.vbs`** — double-click to check GitHub's latest `main` commit, update the application files when the commit changes, install/update dependencies only when required, then start the local Streamlit app. It uses the full Windows PowerShell path, so PowerShell does not need to be on PATH.
+- **`launch_latest.vbs`** — double-click to check GitHub's latest `main` commit, update the application files when the commit changes, install/update dependencies only when required, then choose either the browser app or browser-free CLI menu. It uses the full Windows PowerShell path, so PowerShell does not need to be on PATH.
 - **`rebuild_cog.bat`** — double-click to rebuild `mosaic.vrt` and a physical `mosaic.tif` Cloud Optimized GeoTIFF from existing local `task_*.tif` files. It uses the project's default `data/project_duut-tasi-50m-metinaro/orthophotos` folder; if that folder is missing, it asks you for the source folder.
 
 ### Updater safety
 
 The updater downloads a commit-pinned GitHub archive over HTTPS, checks for required application files, stages changes, and attempts to restore overwritten application files if an update or dependency installation fails. It preserves `data/`, `.venv/`, `.git/`, `.env`, `.streamlit/`, local GeoTIFFs, and the updater's local commit marker. It does not delete files that are absent from the new repository archive. The first launch needs internet access and a supported 64-bit Python 3.11 or 3.12 installation.
+
+### Browser-free CLI mode
+
+After the updater finishes, choose **2. CLI menu** to work without a browser or localhost server. The menu can download completed-task orthophotos, show the local cache, or build a rasterio mosaic named `mosaic-cli.tif` (kept separate from the OSGeo4W COG output). You can also run commands from a terminal using the virtual environment:
+
+```powershell
+.venv\Scripts\python.exe cli.py status
+.venv\Scripts\python.exe cli.py download
+.venv\Scripts\python.exe cli.py mosaic
+```
+
+The default project is Duut Tasi Metinaro. Use `--project-url` and `--base-url` to override it. An optional token can be supplied through the `DRONETM_TOKEN` environment variable; in an interactive terminal, the CLI can also prompt for it without echoing it. The CLI does not start Streamlit, and no command uploads to OpenAerialMap.
+
+### Large GeoTIFF downloads
+
+The browser app no longer passes the entire mosaic GeoTIFF to `st.download_button`, which could cause `MemoryError` for very large files. Instead, it shows the exact local output path and an **Open mosaic output folder in File Explorer** action. Open the raster directly in QGIS or copy it from that folder. Preview PNG and task-report CSV remain downloadable from the app.
 
 ### COG rebuild behavior
 
