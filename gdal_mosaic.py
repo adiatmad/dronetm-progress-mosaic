@@ -59,7 +59,7 @@ def read_gdalinfo(path: Path) -> dict[str, Any]:
 
 
 def _crs_key(info: dict[str, Any]) -> str:
-    authority = info.get("coordinateSystem", {}).get(" ID")
+    authority = info.get("coordinateSystem", {}).get("id") or info.get("coordinateSystem", {}).get("ID")
     # GDAL JSON's canonical field is usually "coordinateSystem": {"wkt": ..., "dataAxisToSRSAxisMapping": ...}.
     # Prefer the WKT when an authority identifier is unavailable.
     if isinstance(authority, dict) and authority.get("authority") and authority.get("code"):
@@ -95,6 +95,7 @@ def build_gdal_mosaic(
     vrt_path: Path,
     cog_path: Path,
     readiness_report_path: Path,
+    gdalinfo_report_path: Path,
     *,
     target_crs: str | None = None,
 ) -> dict[str, Any]:
@@ -123,24 +124,34 @@ def build_gdal_mosaic(
     vrt_path = Path(vrt_path).resolve()
     cog_path = Path(cog_path).resolve()
     readiness_report_path = Path(readiness_report_path).resolve()
+    gdalinfo_report_path = Path(gdalinfo_report_path).resolve()
     vrt_path.parent.mkdir(parents=True, exist_ok=True)
     cog_path.parent.mkdir(parents=True, exist_ok=True)
     readiness_report_path.parent.mkdir(parents=True, exist_ok=True)
+    gdalinfo_report_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Warped VRT inputs must outlive the temporary build directory because the final mosaic.vrt
+    # references them. Use a unique persistent directory; failed runs can leave harmless orphaned
+    # intermediates rather than corrupting a previous mosaic.
+    persistent_warp_dir = None
+    build_sources: list[Path] = []
+    if target_crs or len(set(source_crs)) > 1:
+        warp_root = vrt_path.parent / "warped_sources"
+        warp_root.mkdir(parents=True, exist_ok=True)
+        persistent_warp_dir = Path(tempfile.mkdtemp(prefix="run-", dir=str(warp_root)))
+        for index, path in enumerate(paths, start=1):
+            warped_vrt = persistent_warp_dir / f"warped_{index:04d}.vrt"
+            run_gdal([
+                "gdalwarp", "-overwrite", "-of", "VRT", "-t_srs", effective_crs,
+                "-r", "bilinear", str(path), str(warped_vrt),
+            ])
+            _validated_info(warped_vrt)
+            build_sources.append(warped_vrt)
+    else:
+        build_sources = paths
 
     with tempfile.TemporaryDirectory(prefix=".gdal-mosaic-", dir=str(vrt_path.parent)) as work_dir_text:
         work_dir = Path(work_dir_text)
-        build_sources: list[Path] = []
-        if target_crs or len(set(source_crs)) > 1:
-            for index, path in enumerate(paths, start=1):
-                warped_vrt = work_dir / f"warped_{index:04d}.vrt"
-                run_gdal([
-                    "gdalwarp", "-overwrite", "-of", "VRT", "-t_srs", effective_crs,
-                    "-r", "bilinear", str(path), str(warped_vrt),
-                ])
-                _validated_info(warped_vrt)
-                build_sources.append(warped_vrt)
-        else:
-            build_sources = paths
 
         source_list = work_dir / "source_files.txt"
         source_list.write_text(
@@ -224,10 +235,13 @@ def build_gdal_mosaic(
             ],
         }
         staged_report = work_dir / "readiness_report.json"
+        staged_gdalinfo = work_dir / "gdalinfo.json"
         staged_report.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        staged_gdalinfo.write_text(json.dumps(cog_info, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         _atomic_replace_outputs(staged_vrt, staged_cog, vrt_path, cog_path)
-        # Install the report last, after the raster outputs have passed validation.
+        # Install the reports last, after the raster outputs have passed validation.
         os.replace(staged_report, readiness_report_path)
+        os.replace(staged_gdalinfo, gdalinfo_report_path)
 
     return {
         "path": str(cog_path),
@@ -240,4 +254,5 @@ def build_gdal_mosaic(
         "source_count": len(paths),
         "cog_layout": layout,
         "readiness_report_path": str(readiness_report_path),
+        "gdalinfo_report_path": str(gdalinfo_report_path),
     }
