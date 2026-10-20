@@ -18,3 +18,22 @@ jobs:
         run: python -m pip install -r requirements-dev.txt
       - name: Run unit tests
         run: python -m pytest -q
+
+  windows-launcher-syntax:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse PowerShell launchers
+        shell: pwsh
+        run: |
+          $paths = @("update_and_run.ps1", "rebuild_cog.ps1")
+          foreach ($path in $paths) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $path), [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count -gt 0) {
+              $errors | Format-List
+              throw "PowerShell syntax errors in $path"
+            }
+            Write-Host "PowerShell syntax OK: $path"
+          }

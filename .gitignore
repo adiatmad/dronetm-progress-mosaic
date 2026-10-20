@@ -8,3 +8,4 @@ data/
 *.tiff
 *.png
 .env
+.launcher-state.json
