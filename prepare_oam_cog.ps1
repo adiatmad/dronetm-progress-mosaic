@@ -6,8 +6,8 @@ $Root = [IO.Path]::GetFullPath($PSScriptRoot)
 $InputRaster = Join-Path $Root "data\project_duut-tasi-50m-metinaro\mosaic.tif"
 $OutputRaster = Join-Path $Root "data\project_duut-tasi-50m-metinaro\mosaic_oam.tif"
 $UploaderUrl = "https://upload.imagery.hotosm.org/"
-$ReportedOamLimitBytes = 93GB
-$SafetyLimitBytes = 70GB
+$ReportedOamLimitBytes = 93 * 1e9
+$SafetyLimitBytes = 70 * 1e9
 $ScalePercent = 80
 
 if (-not (Test-Path -LiteralPath $InputRaster -PathType Leaf)) {
@@ -49,7 +49,8 @@ function Get-RasterDecodedBytes([string]$Path) {
             "UInt16|Int16" { $bytesPerSample += 2; break }
             "UInt32|Int32|Float32|CInt16" { $bytesPerSample += 4; break }
             "UInt64|Int64|Float64|CFloat32" { $bytesPerSample += 8; break }
-            "CInt32|CFloat64" { $bytesPerSample += 16; break }
+            "CInt32" { $bytesPerSample += 8; break }
+            "CFloat64" { $bytesPerSample += 16; break }
             default { throw "Unsupported or unknown GDAL band type '$($band.type)'; refusing to guess decoded size." }
         }
     }
