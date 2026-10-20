@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -60,13 +61,18 @@ def read_gdalinfo(path: Path) -> dict[str, Any]:
 
 
 def _crs_key(info: dict[str, Any]) -> str:
-    authority = info.get("coordinateSystem", {}).get("id") or info.get("coordinateSystem", {}).get("ID")
-    # GDAL JSON's canonical field is usually "coordinateSystem": {"wkt": ..., "dataAxisToSRSAxisMapping": ...}.
-    # Prefer the WKT when an authority identifier is unavailable.
+    coordinate_system = info.get("coordinateSystem", {})
+    authority = coordinate_system.get("id") or coordinate_system.get("ID")
     if isinstance(authority, dict) and authority.get("authority") and authority.get("code"):
         return f"{authority['authority']}:{authority['code']}"
-    return str(info["coordinateSystem"]["wkt"]).strip()
 
+    wkt = str(coordinate_system["wkt"]).strip()
+    # Some GDAL versions omit the JSON id field but include the authority ID in the WKT.
+    matches = re.findall(r'ID\["(EPSG|ESRI|OGC)",\s*"?([A-Za-z0-9._-]+)"?\]', wkt, flags=re.IGNORECASE)
+    if matches:
+        authority_name, code = matches[-1]
+        return f"{authority_name.upper()}:{code}"
+    return wkt
 
 def _validated_info(path: Path) -> dict[str, Any]:
     info = read_gdalinfo(path)
