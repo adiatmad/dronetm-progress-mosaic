@@ -23,7 +23,7 @@ if ($SourceFiles.Count -eq 0) {
 
 $ProjectDir = Split-Path -Parent $OrthophotosPath
 $DriveRoot = [IO.Path]::GetPathRoot($ProjectDir)
-$Drive = New-Object System.IO.DriveInfo($DriveRoot)
+$Drive = [System.IO.DriveInfo]::new($DriveRoot)
 $FreeGiB = [math]::Round($Drive.AvailableFreeSpace / 1GB, 1)
 Write-Host ("Found {0} task GeoTIFF(s)." -f $SourceFiles.Count)
 Write-Host ("Output folder: {0}" -f $ProjectDir)
@@ -75,8 +75,6 @@ $lines.Add(('set "PROJECT_DIR={0}"' -f $ProjectDir))
 $lines.Add(('set "STAMP={0}"' -f $stamp))
 $lines.Add('set "HAD_VRT=0"')
 $lines.Add('set "HAD_TIF=0"')
-$lines.Add('set "NEW_VRT=0"')
-$lines.Add('set "NEW_TIF=0"')
 $lines.Add('set "NEW_VRT=0"')
 $lines.Add('set "NEW_TIF=0"')
 $lines.Add('dir /b /s /a-d task_*.tif > "%INPUT_LIST%"')
