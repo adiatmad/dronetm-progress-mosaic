@@ -115,6 +115,33 @@ def build_gdal_outputs(project_dir: Path, source_paths: list[Path]) -> dict[str,
         raise
 
     preview = create_preview(cog_path, project_dir / "preview.png")
+    prep_dir = project_dir / "oam_preparation"
+    prep_dir.mkdir(parents=True, exist_ok=True)
+    (prep_dir / "gdalinfo.json").write_text(
+        json.dumps(cog_info, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    readiness = {
+        "status": "LOCAL_VALIDATION_COMPLETE_REVIEW_REQUIRED",
+        "upload_performed": False,
+        "cog_layout_verified": layout.upper() == "COG",
+        "source_count": len(valid_paths),
+        "cog_path": str(cog_path),
+        "vrt_path": str(vrt_path),
+        "metadata_review_required": [
+            "title and description",
+            "capture date or date range",
+            "license and attribution",
+            "geographic extent and CRS suitability",
+            "source project/task provenance",
+            "OAM-specific upload requirements at time of submission",
+        ],
+        "note": "This report records local raster checks only; it does not guarantee OAM acceptance.",
+    }
+    (prep_dir / "readiness_report.json").write_text(
+        json.dumps(readiness, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
     return {
         "source_count": len(valid_paths),
         "vrt": str(vrt_path),
@@ -126,6 +153,7 @@ def build_gdal_outputs(project_dir: Path, source_paths: list[Path]) -> dict[str,
         "crs": srs,
         "size_bytes": cog_path.stat().st_size,
         "cog_layout": layout,
+        "oam_report": str(prep_dir / "readiness_report.json"),
     }
 
 
@@ -176,6 +204,7 @@ def main() -> int:
     print(f"Preview: {summary['preview']}")
     print(f"Dimensions: {summary['width']:,} x {summary['height']:,}; bands: {summary['bands']}; CRS: {summary['crs']}")
     print(f"COG size: {summary['size_bytes'] / 1048576:.1f} MiB; GDAL layout: {summary['cog_layout']}")
+    print(f"OAM preparation report: {summary["oam_report"]}")
     print("No OpenAerialMap upload was attempted.")
     return 0 if download.returncode == 0 else 1
 
