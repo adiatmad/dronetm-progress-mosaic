@@ -25,7 +25,7 @@ This packaging path remains **experimental until a Windows build completes and t
 1. Install **Python 3.11 or 3.12 (64-bit)** from [python.org](https://www.python.org/downloads/windows/). During setup, enable **Add Python to PATH**.
 2. Download this repository: click **Code → Download ZIP**, then extract it.
 3. Double-click `run_windows.bat`. The first run creates a virtual environment and installs dependencies.
-4. The app opens in your browser. If it does not, open the URL printed in the terminal (usually `http://localhost:8501`).
+4. The legacy Streamlit interface opens in your browser. For the recommended native GUI, double-click `launch_latest.vbs` instead; it updates the source safely and launches `gui_app.py` without localhost.
 5. Paste the DroneTM project page link (for example, `https://drone.hotosm.org/projects/duut-tasi-50m-metinaro`). Paste a DroneTM bearer token if your deployment requires one. The app resolves the public project slug to the internal UUID needed by the orthophoto export API. Keep the default API base URL (`https://api.drone.hotosm.org`); the project page itself is hosted on `drone.hotosm.org`.
 6. Click **Load tasks**, review the task list and statuses, then click **Download selected orthophotos**.
 7. Click **Build mosaic**. Download the GeoTIFF, preview PNG, and task report from the app.
@@ -67,7 +67,7 @@ The script does not download task imagery, alter source orthophotos, or upload t
 - Test the COG launcher with a small disposable folder of test rasters before using the full project. Verify COG validation, output metadata, and backup/rollback behavior.
 - Re-run each launcher to confirm the no-update path works. No OAM upload should occur.
 
-## API settings
+## Native GUI and large-mosaic memory behavior\n\nThe recommended `launch_latest.vbs` path starts a Tkinter Windows desktop window directly. It does not create a localhost server or consume a browser tab. The existing Streamlit `app.py` remains available as a legacy fallback. Its mosaic output section now shows the local file path and opens the project folder instead of passing the full GeoTIFF into a download widget; this avoids the reported `MemoryError` caused by reading the entire large mosaic into application memory.\n\nFor a separate command-line-style COG rebuild, double-click `rebuild_cog.bat`. It runs the OSGeo4W/GDAL workflow on the existing local orthophotos.\n\n## API settings
 
 Defaults are based on the currently documented DroneTM-style routes, but deployments can differ. Check the API docs for your instance if requests return 404 or 401.
 

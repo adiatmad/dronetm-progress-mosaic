@@ -4,7 +4,7 @@ $ProgressPreference = "SilentlyContinue"
 $Repo = "adiatmad/dronetm-progress-mosaic"
 $Root = [IO.Path]::GetFullPath($PSScriptRoot)
 $StatePath = Join-Path $Root ".launcher-state.json"
-$Required = @("app.py", "mosaic_core.py", "requirements.txt", "run_windows.bat")
+$Required = @("app.py", "gui_app.py", "mosaic_core.py", "requirements.txt", "run_windows.bat")
 $PreserveDirs = @("data", ".venv", ".git", ".streamlit", "__pycache__", ".pytest_cache")
 $PreserveFiles = @(".env", ".launcher-state.json")
 $TempRoot = Join-Path ([IO.Path]::GetTempPath()) ("dronetm-update-" + [guid]::NewGuid().ToString("N"))
@@ -111,10 +111,10 @@ try {
 
     $Updated = $false
     Write-Host ""
-    Write-Host "Starting DroneTM Progress Mosaic. Local data folders are preserved."
+    Write-Host "Starting native DroneTM Progress Mosaic GUI (no localhost server). Local data folders are preserved."
     Write-Host "This app does not publish to OpenAerialMap automatically."
     Set-Location -LiteralPath $Root
-    & $venvPython -m streamlit run (Join-Path $Root "app.py")
+    & $venvPython (Join-Path $Root "gui_app.py")
     if ($LASTEXITCODE -ne 0) { throw "Streamlit exited with code $LASTEXITCODE." }
 }
 catch {
