@@ -107,3 +107,17 @@ py -m pytest
 ## License
 
 GNU General Public License v3.0 (GPL-3.0). See [LICENSE](LICENSE).
+
+
+## Prepare one reduced-resolution COG for manual OAM upload
+
+Use `prepare_oam_cog.bat` (or run it from OSGeo4W Shell) to prepare a **single** upload candidate from the existing `mosaic.tif`. It does not rebuild the mosaic from source orthophotos.
+
+- Reads the existing project mosaic; if the default path is absent, asks for the source raster.
+- Writes a separate `mosaic_oam.tif` at 80% width and height (about 64% of the source pixels), using average resampling. This reduces spatial detail; inspect it before publishing.
+- Estimates decoded size from raster dimensions, band sample types, and band count. It enforces a 70 GB decimal safety threshold, below the reported 93 GB OAM limit.
+- Validates COG structure, band count, georeferencing, and decoded size before finalizing the new output.
+- Never overwrites an existing `mosaic_oam.tif` or candidate file. The original `mosaic.tif`, `mosaic.vrt`, and all `task_*.tif` inputs are read-only to this workflow.
+- Opens [the official OAM uploader](https://upload.imagery.hotosm.org/) only after successful local checks. You must sign in and upload manually; the script does not upload, submit credentials, or publish.
+
+Run it from OSGeo4W Shell so `gdalinfo`, `gdal_translate`, and `gdal driver cog validate` are available. The output is a single reduced-resolution raster, not a set of tiles. Keep the original full-resolution mosaic for analysis and archive use.
