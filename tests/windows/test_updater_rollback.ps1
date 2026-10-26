@@ -1,0 +1,43 @@
+$ErrorActionPreference = "Stop"
+$repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot "..\.."))
+$updater = Join-Path $repoRoot "update_and_run.ps1"
+$temp = Join-Path ([IO.Path]::GetTempPath()) ("dronetm-updater-rollback-test-" + [guid]::NewGuid().ToString("N"))
+$root = Join-Path $temp "install-root"
+$candidate = Join-Path $temp "candidate"
+$installations = Join-Path $root ".installations"
+$oldReleaseName = "release-old-0000000000000000000000000000000000000000"
+$oldRelease = Join-Path $installations $oldReleaseName
+$statePath = Join-Path $root ".launcher-state.json"
+$sha = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+
+function Assert([bool]$Condition, [string]$Message) { if (-not $Condition) { throw $Message } }
+try {
+    New-Item -ItemType Directory -Path $oldRelease -Force | Out-Null
+    New-Item -ItemType Directory -Path $candidate -Force | Out-Null
+    New-Item -ItemType Directory -Path (Join-Path $root "data") -Force | Out-Null
+    Set-Content -LiteralPath (Join-Path $oldRelease "active.txt") -Value "old-release"
+    Set-Content -LiteralPath (Join-Path $candidate "app.py") -Value "candidate"
+    Set-Content -LiteralPath (Join-Path $candidate "gui_app.py") -Value "candidate"
+    Set-Content -LiteralPath (Join-Path $candidate "mosaic_core.py") -Value "candidate"
+    Set-Content -LiteralPath (Join-Path $candidate "requirements.txt") -Value "test"
+    Set-Content -LiteralPath (Join-Path $candidate "run_windows.bat") -Value "test"
+    Set-Content -LiteralPath (Join-Path $root "data\keep.txt") -Value "must-survive"
+    @{ commit = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"; install_dir = $oldReleaseName } | ConvertTo-Json | Set-Content -LiteralPath $statePath
+
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $updater -TestMode -TestRoot $root -TestCandidatePath $candidate -TestCommitSha $sha -TestFailDependencyInstall
+    Assert ($LASTEXITCODE -ne 0) "Injected dependency failure unexpectedly succeeded."
+    $afterDependencyFailure = Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json
+    Assert ($afterDependencyFailure.install_dir -eq $oldReleaseName) "Dependency failure changed the active install pointer."
+    Assert ((Get-Content -LiteralPath (Join-Path $oldRelease "active.txt") -Raw).Trim() -eq "old-release") "Previous install content changed after dependency failure."
+    Assert ((Get-Content -LiteralPath (Join-Path $root "data\keep.txt") -Raw).Trim() -eq "must-survive") "Local data was changed during staging."
+
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $updater -TestMode -TestRoot $root -TestCandidatePath $candidate -TestCommitSha $sha -TestFailAfterSwap
+    Assert ($LASTEXITCODE -ne 0) "Injected post-swap failure unexpectedly succeeded."
+    $afterPostSwapFailure = Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json
+    Assert ($afterPostSwapFailure.install_dir -eq $oldReleaseName) "Post-swap failure did not restore the prior install pointer."
+    Assert ((Get-Content -LiteralPath (Join-Path $oldRelease "active.txt") -Raw).Trim() -eq "old-release") "Previous install content changed after pointer rollback."
+    Assert ((Get-Content -LiteralPath (Join-Path $root "data\keep.txt") -Raw).Trim() -eq "must-survive") "Local data did not survive rollback."
+    Write-Host "PASS: dependency-failure and post-swap-failure rollback preserve the previous installation and data."
+} finally {
+    if (Test-Path -LiteralPath $temp) { Remove-Item -LiteralPath $temp -Recurse -Force -ErrorAction SilentlyContinue }
+}
