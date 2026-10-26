@@ -43,6 +43,7 @@ try {
     Assert ((Get-Content -LiteralPath (Join-Path $oldRelease "active.txt") -Raw).Trim() -eq "old-release") "Previous install content changed after pointer rollback."
     Assert ((Get-Content -LiteralPath (Join-Path $root "data\keep.txt") -Raw).Trim() -eq "must-survive") "Local data did not survive rollback."
     Write-Host "PASS: dependency-failure and post-swap-failure rollback preserve the previous installation and data."
+    $global:LASTEXITCODE = 0
 } finally {
     if (Test-Path -LiteralPath $temp) { Remove-Item -LiteralPath $temp -Recurse -Force -ErrorAction SilentlyContinue }
 }
