@@ -37,3 +37,11 @@ jobs:
             }
             Write-Host "PowerShell syntax OK: $path"
           }
+
+  updater-rollback-fault-injection:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deliberately fail dependency install and prove prior install survives
+        shell: pwsh
+        run: ./tests/windows/test_updater_rollback.ps1
