@@ -15,6 +15,8 @@ if ($TestMode -and (-not $TestRoot -or -not $TestCandidatePath)) { throw "TestMo
 $InstallationsRoot = Join-Path $Root ".installations"
 $StatePath = Join-Path $Root ".launcher-state.json"
 $Required = @("app.py", "gui_app.py", "mosaic_core.py", "requirements.txt", "run_windows.bat")
+$PreserveDirs = @("data", ".git", ".venv", ".streamlit", "__pycache__", ".pytest_cache", ".installations")
+$PreserveFiles = @(".env", ".env.local", ".launcher-state.json", "current-install.txt", "secrets.toml", "*.tif", "*.tiff", "*.png")
 $TempRoot = Join-Path ([IO.Path]::GetTempPath()) ("dronetm-update-" + [guid]::NewGuid().ToString("N"))
 $StageRoot = Join-Path $InstallationsRoot ("staging-" + [guid]::NewGuid().ToString("N"))
 $NewRelease = $null
@@ -31,7 +33,7 @@ function Invoke-Checked {
 }
 function Invoke-Robocopy {
     param([string]$Source, [string]$Destination)
-    & robocopy.exe $Source $Destination /MIR /R:2 /W:1 /NFL /NDL /NP /XD data .git .venv .streamlit __pycache__ .pytest_cache .installations /XF .env .env.local .launcher-state.json current-install.txt secrets.toml *.tif *.tiff *.png
+    & robocopy.exe $Source $Destination /MIR /R:2 /W:1 /NFL /NDL /NP /XD $PreserveDirs /XF $PreserveFiles
     if ($LASTEXITCODE -gt 7) { throw "robocopy failed with exit code $LASTEXITCODE." }
 }
 function Invoke-DependencyInstall {
@@ -66,15 +68,23 @@ function Set-StateAtomically {
     $tempState = Join-Path $Root (".launcher-state-" + [guid]::NewGuid().ToString("N") + ".tmp")
     $payload = @{ commit = $Commit; install_dir = $InstallDirectory; updated_utc = [DateTime]::UtcNow.ToString("o") } | ConvertTo-Json
     Set-Content -LiteralPath $tempState -Value $payload -Encoding UTF8
-    if (Test-Path -LiteralPath $StatePath) { [IO.File]::Replace($tempState, $StatePath, $null, $true) }
-    else { [IO.File]::Move($tempState, $StatePath) }
+    if (Test-Path -LiteralPath $StatePath) {
+        $backupState = Join-Path $Root (".launcher-state-old-" + [guid]::NewGuid().ToString("N") + ".tmp")
+        [IO.File]::Replace($tempState, $StatePath, $backupState, $true)
+        return $backupState
+    }
+    [IO.File]::Move($tempState, $StatePath)
+    return $null
 }
 function Restore-OldState {
     if ($OldStateExists) {
         $restorePath = Join-Path $Root (".launcher-state-restore-" + [guid]::NewGuid().ToString("N") + ".tmp")
         Set-Content -LiteralPath $restorePath -Value $OldStateContent -Encoding UTF8
-        if (Test-Path -LiteralPath $StatePath) { [IO.File]::Replace($restorePath, $StatePath, $null, $true) }
-        else { [IO.File]::Move($restorePath, $StatePath) }
+        if (Test-Path -LiteralPath $StatePath) {
+            $backupState = Join-Path $Root (".launcher-state-rollback-" + [guid]::NewGuid().ToString("N") + ".tmp")
+            [IO.File]::Replace($restorePath, $StatePath, $backupState, $true)
+            Remove-Item -LiteralPath $backupState -Force -ErrorAction SilentlyContinue
+        } else { [IO.File]::Move($restorePath, $StatePath) }
     } elseif (Test-Path -LiteralPath $StatePath) { Remove-Item -LiteralPath $StatePath -Force }
 }
 
@@ -137,13 +147,14 @@ try {
     if (Test-Path -LiteralPath $NewRelease) { throw "Release path already exists; refusing to overwrite an existing install." }
     Move-Item -LiteralPath $StageRoot -Destination $NewRelease
 
-    Set-StateAtomically -Commit $latestSha -InstallDirectory $releaseName
+    $stateBackup = Set-StateAtomically -Commit $latestSha -InstallDirectory $releaseName
     $PointerSwitched = $true
+    if ($stateBackup) { Remove-Item -LiteralPath $stateBackup -Force -ErrorAction SilentlyContinue }
     if ($TestFailAfterSwap) { throw "Injected post-swap failure for rollback acceptance test." }
 
     Write-Host "Verified release activated: $releaseName"
     Write-Host "Timestamped previous releases remain under .installations for rollback."
-    Write-Host "Local data/ and source orthophotos remain in the project root. No OAM upload was attempted."
+    Write-Host "Local data/ and source orthophotos remain in the project root. No OpenAerialMap upload or publication is performed."
     if ($TestMode) { exit 0 }
 
     $activePython = Join-Path $NewRelease ".venv\Scripts\python.exe"
