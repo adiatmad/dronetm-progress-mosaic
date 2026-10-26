@@ -105,9 +105,98 @@ try {
         $commit = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/commits/main" -Headers $headers -TimeoutSec 30
         $latestSha = [string]$commit.sha
         if ($latestSha -notmatch '^[0-9a-f]{40}$') { throw "GitHub returned an invalid commit SHA; refusing to update." }
-        if ($OldState -and $OldState.install_dir -and ([string]$OldState.commit -eq $latestSha)) {
+        if ($OldState -and $OldState.install_dir -match '^release-' -and ([string]$OldState.commit -eq $latestSha)) {
             $releaseName = [string]$OldState.install_dir
-            if ($releaseName -notmatch '^release-[A-Za-z0-9-]+$') { throw "Current install pointer is invalid; refusing to launch an unexpected path." }
+            if ($releaseName -notmatch '^(release|previous-legacy)-[A-Za-z0-9-]+ { throw "Current install pointer is invalid; refusing to launch an unexpected path." }
+            $activeRelease = Join-Path $InstallationsRoot $releaseName
+            $activePython = Join-Path $activeRelease ".venv\Scripts\python.exe"
+            if (-not (Test-Path -LiteralPath $activePython)) { throw "Current release is missing its virtual environment; active files were not modified." }
+            Write-Host "Already at commit $latestSha. Launching verified local GUI."
+            Push-Location $Root
+            try { & $activePython (Join-Path $activeRelease "gui_app.py") } finally { Pop-Location }
+            if ($LASTEXITCODE -ne 0) { throw "GUI exited with code $LASTEXITCODE." }
+            exit 0
+        }
+        Write-Host "Downloading archive pinned to commit $latestSha..."
+        $zipPath = Join-Path $TempRoot "source.zip"
+        $extractPath = Join-Path $TempRoot "extract"
+        Invoke-WebRequest -Uri "https://api.github.com/repos/$Repo/zipball/$latestSha" -Headers $headers -OutFile $zipPath -TimeoutSec 180
+        Expand-Archive -LiteralPath $zipPath -DestinationPath $extractPath -Force
+        $sourceRoot = Get-ChildItem -LiteralPath $extractPath -Directory | Select-Object -First 1
+        if (-not $sourceRoot) { throw "GitHub archive was empty." }
+    }
+
+    foreach ($name in $Required) {
+        if (-not (Test-Path -LiteralPath (Join-Path $sourceRoot.FullName $name) -PathType Leaf)) {
+            throw "Pinned archive is missing required file '$name'; active installation was not changed."
+        }
+    }
+
+    Write-Host "Syncing into a new staging folder, never into the active installation..."
+    New-Item -ItemType Directory -Path $StageRoot -Force | Out-Null
+    Invoke-Robocopy -Source $sourceRoot.FullName -Destination $StageRoot
+    foreach ($name in $Required) {
+        if (-not (Test-Path -LiteralPath (Join-Path $StageRoot $name) -PathType Leaf)) { throw "Staging is missing required file '$name'." }
+    }
+
+    Invoke-DependencyInstall -StagePath $StageRoot
+
+    $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
+    if (-not ($OldState -and $OldState.install_dir)) {
+        # One-time migration: preserve a timestamped snapshot of the legacy root install.
+        # Keep the original root .venv in place and expose it through a junction in the snapshot.
+        $legacyName = "previous-legacy-" + $stamp
+        $legacyPath = Join-Path $InstallationsRoot $legacyName
+        New-Item -ItemType Directory -Path $legacyPath -Force | Out-Null
+        Invoke-Robocopy -Source $Root -Destination $legacyPath
+        $rootVenv = Join-Path $Root ".venv"
+        $legacyVenv = Join-Path $legacyPath ".venv"
+        if (Test-Path -LiteralPath $rootVenv -PathType Container) {
+            & $env:ComSpec /d /c ('mklink /J "' + $legacyVenv + '" "' + $rootVenv + '"')
+            if ($LASTEXITCODE -ne 0) { throw "Could not link the legacy snapshot to the existing .venv; root installation and data remain unchanged." }
+        }
+        $legacyCommit = if ($OldState -and $OldState.commit) { [string]$OldState.commit } else { "legacy" }
+        $OldStateContent = (@{ commit = $legacyCommit; install_dir = $legacyName; updated_utc = [DateTime]::UtcNow.ToString("o") } | ConvertTo-Json)
+        $OldStateExists = $true
+        $OldState = @{ commit = $legacyCommit; install_dir = $legacyName }
+    }
+
+    $releaseName = "release-" + $stamp + "-" + $latestSha
+    $NewRelease = Join-Path $InstallationsRoot $releaseName
+    if (Test-Path -LiteralPath $NewRelease) { throw "Release path already exists; refusing to overwrite an existing install." }
+    Move-Item -LiteralPath $StageRoot -Destination $NewRelease
+
+    $stateBackup = Set-StateAtomically -Commit $latestSha -InstallDirectory $releaseName
+    $PointerSwitched = $true
+    if ($stateBackup) { Remove-Item -LiteralPath $stateBackup -Force -ErrorAction SilentlyContinue }
+    if ($TestFailAfterSwap) { throw "Injected post-swap failure for rollback acceptance test." }
+
+    Write-Host "Verified release activated: $releaseName"
+    Write-Host "Timestamped previous releases remain under .installations for rollback."
+    Write-Host "Local data/ and source orthophotos remain in the project root. No OpenAerialMap upload or publication is performed."
+    if ($TestMode) { exit 0 }
+
+    $activePython = Join-Path $NewRelease ".venv\Scripts\python.exe"
+    if (-not (Test-Path -LiteralPath $activePython)) { throw "Activated release is missing its staged Python environment." }
+    Push-Location $Root
+    try { & $activePython (Join-Path $NewRelease "gui_app.py") } finally { Pop-Location }
+    if ($LASTEXITCODE -ne 0) { throw "GUI exited with code $LASTEXITCODE." }
+} catch {
+    Write-Host ""
+    Write-Host ("ERROR: " + $_.Exception.Message) -ForegroundColor Red
+    if ($PointerSwitched) {
+        Write-Host "Restoring the previous install pointer atomically..." -ForegroundColor Yellow
+        try { Restore-OldState; Write-Host "Previous install pointer restored." }
+        catch { Write-Host ("CRITICAL: pointer rollback failed: " + $_.Exception.Message) -ForegroundColor Red; Write-Host "Do not delete .installations; manually restore .launcher-state.json." }
+    } else { Write-Host "Active installation pointer was never changed; the previous install remains active." }
+    if ($NewRelease -and (Test-Path -LiteralPath $NewRelease)) { Write-Host "Candidate release retained for inspection: $NewRelease" }
+    if (Test-Path -LiteralPath $StageRoot) { Remove-Item -LiteralPath $StageRoot -Recurse -Force -ErrorAction SilentlyContinue }
+    if (-not $TestMode) { Write-Host "Press Enter to close."; [void](Read-Host) }
+    exit 1
+} finally {
+    if (Test-Path -LiteralPath $TempRoot) { Remove-Item -LiteralPath $TempRoot -Recurse -Force -ErrorAction SilentlyContinue }
+}
+) { throw "Current install pointer is invalid; refusing to launch an unexpected path." }
             $activeRelease = Join-Path $InstallationsRoot $releaseName
             $activePython = Join-Path $activeRelease ".venv\Scripts\python.exe"
             if (-not (Test-Path -LiteralPath $activePython)) { throw "Current release is missing its virtual environment; active files were not modified." }
