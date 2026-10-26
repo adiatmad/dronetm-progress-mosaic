@@ -32,8 +32,9 @@ function Invoke-Checked {
     if ($LASTEXITCODE -ne 0) { throw "Command failed ($LASTEXITCODE): $File $($Arguments -join ' ')" }
 }
 function Invoke-Robocopy {
-    param([string]$Source, [string]$Destination)
-    & robocopy.exe $Source $Destination /MIR /R:2 /W:1 /NFL /NDL /NP /XD $PreserveDirs /XF $PreserveFiles
+    param([string]$Source, [string]$Destination, [string[]]$ExtraExcludeDirs = @())
+    $excludeDirs = @($PreserveDirs) + @($ExtraExcludeDirs)
+    & robocopy.exe $Source $Destination /MIR /R:2 /W:1 /NFL /NDL /NP /XD $excludeDirs /XF $PreserveFiles
     if ($LASTEXITCODE -gt 7) { throw "robocopy failed with exit code $LASTEXITCODE." }
 }
 function Invoke-DependencyInstall {
@@ -148,7 +149,7 @@ try {
         $legacyName = "previous-legacy-" + $stamp
         $legacyPath = Join-Path $InstallationsRoot $legacyName
         New-Item -ItemType Directory -Path $legacyPath -Force | Out-Null
-        Invoke-Robocopy -Source $Root -Destination $legacyPath
+        Invoke-Robocopy -Source $Root -Destination $legacyPath -ExtraExcludeDirs @($InstallationsRoot)
         $rootVenv = Join-Path $Root ".venv"
         $legacyVenv = Join-Path $legacyPath ".venv"
         if (Test-Path -LiteralPath $rootVenv -PathType Container) {
