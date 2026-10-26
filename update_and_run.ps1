@@ -107,7 +107,7 @@ try {
         if ($latestSha -notmatch '^[0-9a-f]{40}$') { throw "GitHub returned an invalid commit SHA; refusing to update." }
         if ($OldState -and $OldState.install_dir -match '^release-' -and ([string]$OldState.commit -eq $latestSha)) {
             $releaseName = [string]$OldState.install_dir
-            if ($releaseName -notmatch '^(release|previous-legacy)-[A-Za-z0-9-]+ { throw "Current install pointer is invalid; refusing to launch an unexpected path." }
+            if ($releaseName -notmatch '^(release|previous-legacy)-[A-Za-z0-9-]+$') { throw "Current install pointer is invalid; refusing to launch an unexpected path." }
             $activeRelease = Join-Path $InstallationsRoot $releaseName
             $activePython = Join-Path $activeRelease ".venv\Scripts\python.exe"
             if (-not (Test-Path -LiteralPath $activePython)) { throw "Current release is missing its virtual environment; active files were not modified." }
