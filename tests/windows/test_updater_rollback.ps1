@@ -24,15 +24,20 @@ try {
     Set-Content -LiteralPath (Join-Path $root "data\keep.txt") -Value "must-survive"
     @{ commit = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"; install_dir = $oldReleaseName } | ConvertTo-Json | Set-Content -LiteralPath $statePath
 
-    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $updater -TestMode -TestRoot $root -TestCandidatePath $candidate -TestCommitSha $sha -TestFailDependencyInstall
-    Assert ($LASTEXITCODE -ne 0) "Injected dependency failure unexpectedly succeeded."
+    $dependencyOutput = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $updater -TestMode -TestRoot $root -TestCandidatePath $candidate -TestCommitSha $sha -TestFailDependencyInstall 2>&1
+    $dependencyExit = $LASTEXITCODE
+    Assert ($dependencyExit -ne 0) "Injected dependency failure unexpectedly succeeded."
+    Assert (($dependencyOutput -join "`n") -match "Injected dependency installation failure") "Dependency failure injection did not reach the intended step."
     $afterDependencyFailure = Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json
     Assert ($afterDependencyFailure.install_dir -eq $oldReleaseName) "Dependency failure changed the active install pointer."
     Assert ((Get-Content -LiteralPath (Join-Path $oldRelease "active.txt") -Raw).Trim() -eq "old-release") "Previous install content changed after dependency failure."
     Assert ((Get-Content -LiteralPath (Join-Path $root "data\keep.txt") -Raw).Trim() -eq "must-survive") "Local data was changed during staging."
 
-    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $updater -TestMode -TestRoot $root -TestCandidatePath $candidate -TestCommitSha $sha -TestFailAfterSwap
-    Assert ($LASTEXITCODE -ne 0) "Injected post-swap failure unexpectedly succeeded."
+    $swapOutput = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $updater -TestMode -TestRoot $root -TestCandidatePath $candidate -TestCommitSha $sha -TestFailAfterSwap 2>&1
+    $swapExit = $LASTEXITCODE
+    Assert ($swapExit -ne 0) "Injected post-swap failure unexpectedly succeeded."
+    Assert (($swapOutput -join "`n") -match "Injected post-swap failure") "Post-swap failure injection did not reach the intended step."
+    Assert (($swapOutput -join "`n") -match "Previous install pointer restored") "The updater did not report successful pointer restoration."
     $afterPostSwapFailure = Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json
     Assert ($afterPostSwapFailure.install_dir -eq $oldReleaseName) "Post-swap failure did not restore the prior install pointer."
     Assert ((Get-Content -LiteralPath (Join-Path $oldRelease "active.txt") -Raw).Trim() -eq "old-release") "Previous install content changed after pointer rollback."
