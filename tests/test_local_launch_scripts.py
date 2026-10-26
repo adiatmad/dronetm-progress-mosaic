@@ -21,15 +21,14 @@ def test_updater_pins_commit_and_stages_before_activation():
     assert "/zipball/$latestSha" in updater
     assert "robocopy.exe" in updater
     assert "/MIR" in updater
-    assert "/XD data .git" in updater
-    assert "/XF .env .env.local .launcher-state.json" in updater
+    assert '$PreserveDirs = @("data", ".git"' in updater
+    assert '$PreserveFiles = @(".env", ".env.local"' in updater
     assert "Invoke-DependencyInstall -StagePath $StageRoot" in updater
     assert "import numpy, rasterio, requests; import mosaic_core; import gui_app" in updater
     assert "[IO.File]::Replace" in updater
     assert "Restoring the previous install pointer atomically" in updater
     assert "Copy-Item -LiteralPath $backup -Destination $destination -Force" not in updater
-    assert "data/" in updater
-    assert "No OpenAerialMap upload" in updater
+    assert "No OpenAerialMap upload or publication is performed" in updater
 
 
 def test_updater_has_ci_fault_injection_for_dependency_and_post_swap_failures():
@@ -62,4 +61,4 @@ def test_cog_workflow_has_no_oam_upload_endpoint():
     script = _read("rebuild_cog.ps1").lower()
     assert "/api/v1/s3/createmultipart" not in script
     assert "openaerialmap.org/api" not in script
-    assert "no oam upload was attempted" in script
+    assert "does not upload to openaerialmap" in script.lower()
