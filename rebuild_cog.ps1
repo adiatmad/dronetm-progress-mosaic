@@ -118,7 +118,7 @@ $lines.Add('exit /b 1')
 Set-Content -LiteralPath $workerPath -Value $lines -Encoding Default
 try {
     Write-Host "Building and validating candidates before touching the final mosaic.tif."
-    Write-Host "The VRT candidate is retained for inspection; no OAM upload occurs."
+    Write-Host "The validated VRT and COG are activated only after validation; no OAM upload occurs."
     & $env:ComSpec /d /c ('"' + $workerPath + '"') 2>&1 | Tee-Object -FilePath $logPath
     $exitCode = $LASTEXITCODE
     if ($exitCode -ne 0) { throw "Build failed with exit code $exitCode. Review $logPath" }
