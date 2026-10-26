@@ -45,17 +45,15 @@ def test_updater_has_ci_fault_injection_for_dependency_and_post_swap_failures():
 def test_cog_script_validates_candidates_before_replacing_outputs():
     script = _read("rebuild_cog.ps1")
     validate_at = script.index("Validating candidate COG")
-    archive_at = script.index('move /y "%PROJECT_DIR%\\mosaic.tif" "%PROJECT_DIR%\\mosaic.backup-%STAMP%.tif"')
-    assert validate_at < archive_at
+    atomic_replace_at = script.index("[IO.File]::Replace($nextTif, $finalTif, $tifBackup, $true)")
+    assert validate_at < atomic_replace_at
     assert "gdalbuildvrt -overwrite -strict -resolution average" in script
     assert "gdal_translate -of COG -co COMPRESS=DEFLATE -co OVERVIEWS=AUTO" in script
     assert "validate_cloud_optimized_geotiff.py" in script
     assert "rio cogeo validate" in script
-    assert "mosaic.backup-%STAMP%.tif" in script
-    assert "mosaic.backup-%STAMP%.vrt" in script
-    assert 'set "NEW_VRT=0"' in script
-    assert 'set "NEW_TIF=0"' in script
-
+    assert "mosaic.backup-" in script
+    assert "[IO.File]::Replace($nextVrt, $finalVrt, $vrtBackup, $true)" in script
+    assert "previous outputs were restored" in script
 
 def test_cog_workflow_has_no_oam_upload_endpoint():
     script = _read("rebuild_cog.ps1").lower()
