@@ -120,7 +120,7 @@ try {
         Write-Host "Downloading archive pinned to commit $latestSha..."
         $zipPath = Join-Path $TempRoot "source.zip"
         $extractPath = Join-Path $TempRoot "extract"
-        Invoke-WebRequest -Uri "https://api.github.com/repos/$Repo/zipball/$latestSha" -Headers $headers -OutFile $zipPath -TimeoutSec 180
+        Invoke-WebRequest -Uri "https://github.com/$Repo/archive/$latestSha.zip" -Headers $headers -OutFile $zipPath -TimeoutSec 180
         Expand-Archive -LiteralPath $zipPath -DestinationPath $extractPath -Force
         $sourceRoot = Get-ChildItem -LiteralPath $extractPath -Directory | Select-Object -First 1
         if (-not $sourceRoot) { throw "GitHub archive was empty." }
