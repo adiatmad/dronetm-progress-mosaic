@@ -18,7 +18,7 @@ def test_vbs_launcher_uses_full_windows_powershell_path():
 def test_updater_pins_commit_and_stages_before_activation():
     updater = _read("update_and_run.ps1")
     assert "/commits/main" in updater
-    assert "/zipball/$latestSha" in updater
+    assert "/archive/$latestSha.zip" in updater
     assert "robocopy.exe" in updater
     assert "/MIR" in updater
     assert '$PreserveDirs = @("data", ".git"' in updater
