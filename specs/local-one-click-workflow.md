@@ -47,7 +47,7 @@ Provide two independent Windows double-click workflows for DroneTM Progress Mosa
 - [x] COG build uses temporary VRT/COG candidates and required compression/overview options.
 - [x] Candidate COG validation precedes atomic final-file replacement; old outputs are archived and replacement rollback is implemented.
 - [x] No automatic OAM upload/publication is added.
-- [ ] Latest full CI run passes all Python tests, PowerShell syntax checks, and Windows rollback fault-injection tests.
+- [x] Latest full CI run passes all Python tests, PowerShell syntax checks, and Windows rollback fault-injection tests.
 - [ ] Manual acceptance on the user's Windows installation confirms the updater's first migration/no-update behavior and runs the COG rebuild on a disposable raster set before using the full project.
 
 ## Known limitation
