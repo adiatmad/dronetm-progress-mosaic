@@ -38,7 +38,7 @@ if (-not (Get-Command "gdalbuildvrt.exe" -ErrorAction SilentlyContinue)) {
 }
 if (-not $envBat -and -not (Get-Command "gdalbuildvrt.exe" -ErrorAction SilentlyContinue)) { throw "GDAL was not found. Open OSGeo4W Shell or install QGIS, then retry." }
 
-$stamp = Get-Date -Format "yyyyMMdd-HHmmss"
+$stamp = Get-Date -Format "yyyyMMdd-HHmmss-fff"
 $workerPath = Join-Path ([IO.Path]::GetTempPath()) ("dronetm-rebuild-cog-" + $PID + ".cmd")
 $logPath = Join-Path $ProjectDir ("cog_build_" + $stamp + ".log")
 $inputList = Join-Path ([IO.Path]::GetTempPath()) ("dronetm-orthophotos-" + $PID + ".txt")
@@ -55,10 +55,6 @@ $lines.Add(('set "PROJECT_DIR={0}"' -f $ProjectDir))
 $lines.Add(('set "STAMP={0}"' -f $stamp))
 $lines.Add(('set "NEXT_VRT={0}"' -f $nextVrt))
 $lines.Add(('set "NEXT_TIF={0}"' -f $nextTif))
-$lines.Add('set "HAD_VRT=0"')
-$lines.Add('set "HAD_TIF=0"')
-$lines.Add('set "NEW_VRT=0"')
-$lines.Add('set "NEW_TIF=0"')
 $lines.Add('dir /b /s /a-d task_*.tif > "%INPUT_LIST%"')
 $lines.Add('if errorlevel 1 goto :fail')
 $lines.Add('where gdalbuildvrt >nul 2>nul')
@@ -85,35 +81,11 @@ $lines.Add('    gdal driver cog validate "%NEXT_TIF%"')
 $lines.Add('    if errorlevel 1 goto :fail')
 $lines.Add('  )')
 $lines.Add(')')
-$lines.Add('echo Candidate COG passed validation. Preparing replacement...')
-$lines.Add('if exist "%PROJECT_DIR%\mosaic.vrt" (')
-$lines.Add('  move /y "%PROJECT_DIR%\mosaic.vrt" "%PROJECT_DIR%\mosaic.backup-%STAMP%.vrt" >nul')
-$lines.Add('  if errorlevel 1 goto :fail')
-$lines.Add('  set "HAD_VRT=1"')
-$lines.Add(')')
-$lines.Add('if exist "%PROJECT_DIR%\mosaic.tif" (')
-$lines.Add('  move /y "%PROJECT_DIR%\mosaic.tif" "%PROJECT_DIR%\mosaic.backup-%STAMP%.tif" >nul')
-$lines.Add('  if errorlevel 1 goto :rollback')
-$lines.Add('  set "HAD_TIF=1"')
-$lines.Add(')')
-$lines.Add('move /y "%NEXT_VRT%" "%PROJECT_DIR%\mosaic.vrt" >nul')
-$lines.Add('if errorlevel 1 goto :rollback')
-$lines.Add('set "NEW_VRT=1"')
-$lines.Add('move /y "%NEXT_TIF%" "%PROJECT_DIR%\mosaic.tif" >nul')
-$lines.Add('if errorlevel 1 goto :rollback')
-$lines.Add('set "NEW_TIF=1"')
-$lines.Add('echo SUCCESS: validated mosaic.vrt and mosaic.tif replaced. Previous outputs, if any, are archived.')
-$lines.Add('echo The rebuild does not upload to OpenAerialMap.')
-$lines.Add('echo No source orthophotos were modified.')
+$lines.Add('echo Candidate COG passed validation.')
+$lines.Add('echo Candidates are ready for atomic replacement by the PowerShell wrapper.')
 $lines.Add('exit /b 0')
-$lines.Add(':rollback')
-$lines.Add('echo ERROR: final output move failed; restoring previous outputs.')
-$lines.Add('if "%NEW_VRT%"=="1" if exist "%PROJECT_DIR%\mosaic.vrt" del /q "%PROJECT_DIR%\mosaic.vrt"')
-$lines.Add('if "%NEW_TIF%"=="1" if exist "%PROJECT_DIR%\mosaic.tif" del /q "%PROJECT_DIR%\mosaic.tif"')
-$lines.Add('if "%HAD_VRT%"=="1" if exist "%PROJECT_DIR%\mosaic.backup-%STAMP%.vrt" move /y "%PROJECT_DIR%\mosaic.backup-%STAMP%.vrt" "%PROJECT_DIR%\mosaic.vrt" >nul')
-$lines.Add('if "%HAD_TIF%"=="1" if exist "%PROJECT_DIR%\mosaic.backup-%STAMP%.tif" move /y "%PROJECT_DIR%\mosaic.backup-%STAMP%.tif" "%PROJECT_DIR%\mosaic.tif" >nul')
 $lines.Add(':fail')
-$lines.Add('echo ERROR: COG rebuild failed. Existing final mosaic.tif was not replaced unless validation succeeded.')
+$lines.Add('echo ERROR: candidate build or validation failed. Existing final outputs were untouched.')
 $lines.Add('exit /b 1')
 Set-Content -LiteralPath $workerPath -Value $lines -Encoding Default
 try {
@@ -121,8 +93,54 @@ try {
     Write-Host "The validated VRT and COG are activated only after validation; no OAM upload occurs."
     & $env:ComSpec /d /c ('"' + $workerPath + '"') 2>&1 | Tee-Object -FilePath $logPath
     $exitCode = $LASTEXITCODE
-    if ($exitCode -ne 0) { throw "Build failed with exit code $exitCode. Review $logPath" }
-    Write-Host "Finished. Review the mosaic preview and metadata before any publication."
+    if ($exitCode -ne 0) { throw "Build failed with exit code $exitCode. Review $logPath; final outputs were not changed." }
+
+    $finalVrt = Join-Path $ProjectDir "mosaic.vrt"
+    $finalTif = Join-Path $ProjectDir "mosaic.tif"
+    $vrtBackup = Join-Path $ProjectDir ("mosaic.backup-" + $stamp + ".vrt")
+    $tifBackup = Join-Path $ProjectDir ("mosaic.backup-" + $stamp + ".tif")
+    $failedVrt = Join-Path $ProjectDir ("mosaic.failed-" + $stamp + ".vrt")
+    $failedTif = Join-Path $ProjectDir ("mosaic.failed-" + $stamp + ".tif")
+    $hadVrt = Test-Path -LiteralPath $finalVrt
+    $hadTif = Test-Path -LiteralPath $finalTif
+    $vrtReplaced = $false
+    $tifReplaced = $false
+    try {
+        if ($hadVrt) { [IO.File]::Replace($nextVrt, $finalVrt, $vrtBackup, $true) }
+        else { [IO.File]::Move($nextVrt, $finalVrt) }
+        $vrtReplaced = $true
+
+        if ($hadTif) { [IO.File]::Replace($nextTif, $finalTif, $tifBackup, $true) }
+        else { [IO.File]::Move($nextTif, $finalTif) }
+        $tifReplaced = $true
+    } catch {
+        $commitError = $_.Exception.Message
+        try {
+            if ($tifReplaced) {
+                if ($hadTif -and (Test-Path -LiteralPath $tifBackup)) {
+                    [IO.File]::Replace($tifBackup, $finalTif, $failedTif, $true)
+                    Remove-Item -LiteralPath $failedTif -Force -ErrorAction SilentlyContinue
+                } elseif (-not $hadTif -and (Test-Path -LiteralPath $finalTif)) {
+                    Remove-Item -LiteralPath $finalTif -Force
+                }
+            }
+            if ($vrtReplaced) {
+                if ($hadVrt -and (Test-Path -LiteralPath $vrtBackup)) {
+                    [IO.File]::Replace($vrtBackup, $finalVrt, $failedVrt, $true)
+                    Remove-Item -LiteralPath $failedVrt -Force -ErrorAction SilentlyContinue
+                } elseif (-not $hadVrt -and (Test-Path -LiteralPath $finalVrt)) {
+                    Remove-Item -LiteralPath $finalVrt -Force
+                }
+            }
+        } catch {
+            throw "Atomic output replacement failed: $commitError. Automatic restoration also failed: $($_.Exception.Message). Keep all mosaic.backup-* files for manual recovery."
+        }
+        throw "Atomic output replacement failed; previous outputs were restored: $commitError"
+    }
+    Write-Host "Validated mosaic.vrt and mosaic.tif activated with atomic file replacement."
+    if ($hadVrt) { Write-Host "Previous VRT archived: $vrtBackup" }
+    if ($hadTif) { Write-Host "Previous COG archived: $tifBackup" }
+    Write-Host "The rebuild does not upload to OpenAerialMap. Review the output before publication."
 } finally {
     Remove-Item -LiteralPath $workerPath -Force -ErrorAction SilentlyContinue
     Remove-Item -LiteralPath $inputList -Force -ErrorAction SilentlyContinue
