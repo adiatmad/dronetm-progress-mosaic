@@ -32,4 +32,5 @@ def test_cog_rebuild_stays_separate_and_has_no_oam_upload():
     assert "gdalbuildvrt" in source
     assert "gdal_translate" in source
     assert "gdal driver cog validate" in source
+    assert "[IO.File]::Replace($nextTif, $finalTif, $tifBackup, $true)" in source
     assert "does not upload to OpenAerialMap" in source
