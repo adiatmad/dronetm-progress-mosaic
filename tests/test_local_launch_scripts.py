@@ -21,6 +21,7 @@ def test_updater_pins_commit_and_stages_before_activation():
     assert "/archive/$latestSha.zip" in updater
     assert "robocopy.exe" in updater
     assert "/MIR" in updater
+    assert "ExtraExcludeDirs @($InstallationsRoot)" in updater
     assert '$PreserveDirs = @("data", ".git"' in updater
     assert '$PreserveFiles = @(".env", ".env.local"' in updater
     assert "Invoke-DependencyInstall -StagePath $StageRoot" in updater
