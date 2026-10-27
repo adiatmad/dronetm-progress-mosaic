@@ -61,3 +61,16 @@ def test_cog_workflow_has_no_oam_upload_endpoint():
     assert "/api/v1/s3/createmultipart" not in script
     assert "openaerialmap.org/api" not in script
     assert "does not upload to openaerialmap" in script.lower()
+
+def test_oam_prep_is_separate_non_overwriting_manual_workflow():
+    script = _read("prepare_oam_cog.ps1")
+    assert "mosaic_oam.tif" in script
+    assert "70 * 1e9" in script
+    assert "93 * 1e9" in script
+    assert '"$ScalePercent%"' in script
+    assert "gdal driver cog validate" in script
+    assert "Start-Process $UploaderUrl" in script
+    assert "upload.imagery.hotosm.org" in script
+    assert "createmultipart" not in script.lower()
+    assert "Invoke-WebRequest" not in script
+    assert "Move-Item -LiteralPath $CandidateRaster -Destination $OutputRaster" in script

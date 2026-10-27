@@ -26,7 +26,7 @@ jobs:
       - name: Parse PowerShell launchers
         shell: pwsh
         run: |
-          $paths = @("update_and_run.ps1", "rebuild_cog.ps1")
+          $paths = @("update_and_run.ps1", "rebuild_cog.ps1", "prepare_oam_cog.ps1")
           foreach ($path in $paths) {
             $tokens = $null
             $errors = $null
