@@ -9,3 +9,6 @@ data/
 *.png
 .env
 .launcher-state.json
+
+.installations/
+.launcher-state-*.tmp

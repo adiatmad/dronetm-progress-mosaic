@@ -48,15 +48,18 @@ After extracting the repository into your local project folder, you can use thes
 
 ### Updater safety
 
-The updater downloads a commit-pinned GitHub archive over HTTPS, checks for required application files, stages changes, and attempts to restore overwritten application files if an update or dependency installation fails. It preserves `data/`, `.venv/`, `.git/`, `.env`, `.streamlit/`, local GeoTIFFs, and the updater's local commit marker. It does not delete files that are absent from the new repository archive. The first launch needs internet access and a supported 64-bit Python 3.11 or 3.12 installation.
+The updater resolves the current `main` commit through GitHub's commits API and downloads `zipball/<exact-40-character-SHA>`. It mirrors the archive into a **new staging directory** with `robocopy /MIR`, excluding `data/`, `.git/`, `.venv/`, `.streamlit/`, local configuration and raster outputs. It installs dependencies and runs an import smoke test in staging before creating a timestamped sibling release under `.installations/`. The active release is selected by an atomically replaced `.launcher-state.json` pointer; prior release folders are retained. A dependency failure leaves the old pointer untouched, while a post-switch failure atomically restores the old pointer rather than copying source files back over a live install. Local `data/`, source orthophotos and the root environment are not overwritten. The first launch needs internet access and supported 64-bit Python 3.11 or 3.12.
+
+GitHub Actions includes a Windows fault-injection test that deliberately fails the staged dependency step and a second test that fails immediately after pointer activation. Both must prove that the prior release remains selected and the local data sentinel survives.
 
 ### COG rebuild behavior
 
 The COG launcher:
-1. Checks that local `task_*.tif` inputs exist and at least 60 GiB is free on the output drive. This is a minimum safety gate, not a guarantee that every mosaic will fit.
-2. Builds a strict VRT candidate with `-resolution average`, creates a DEFLATE COG candidate with BigTIFF enabled, and runs `gdal driver cog validate`.
-3. Replaces the final `mosaic.vrt` and `mosaic.tif` only after validation succeeds. Existing final outputs are retained as timestamped backups if replacement succeeds; a failed replacement attempts rollback.
-4. Writes a build log in the project output folder.
+1. Checks for local `task_*.tif` inputs and at least 60 GiB free on the output drive. This is a minimum safety gate, not a guarantee that every mosaic will fit.
+2. Builds a timestamped temporary VRT with `gdalbuildvrt`, then a temporary COG using `gdal_translate -of COG -co COMPRESS=DEFLATE -co OVERVIEWS=AUTO`.
+3. Validates the candidate using `validate_cloud_optimized_geotiff.py` when available, otherwise `rio cogeo validate`, with GDAL's COG validator as a final supported fallback.
+4. Only after validation, archives existing `mosaic.vrt` and `mosaic.tif` and moves the candidates into place. If either replacement fails, it removes any new output and restores the archived outputs.
+5. Writes a build log in the project output folder. No upload to OpenAerialMap is attempted.
 
 The script does not download task imagery, alter source orthophotos, or upload to OpenAerialMap. The current overlap behavior is standard GDAL VRT source priority, **not alpha-aware blending**. Review the mosaic preview, coverage, gaps, and seams before publication. If you need alpha-aware blending, treat that as a separate implementation requiring a verified blending method and test imagery.
 
