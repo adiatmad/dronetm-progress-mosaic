@@ -52,6 +52,20 @@ The updater resolves the current `main` commit through GitHub's commits API and 
 
 GitHub Actions includes a Windows fault-injection test that deliberately fails the staged dependency step and a second test that fails immediately after pointer activation. Both must prove that the prior release remains selected and the local data sentinel survives.
 
+### Browser-free CLI mode
+
+After the updater verifies or installs the current release, choose **Native desktop GUI**, **Browser-free CLI menu**, or **Exit**. The CLI does not start Streamlit, open a browser, or create a localhost server. It can download completed-task orthophotos, show the local cache, or build a rasterio mosaic named `mosaic-cli.tif`, separate from the validated OSGeo4W COG output.
+
+For direct terminal use from the repository root:
+
+```powershell
+.venv\Scripts\python.exe cli.py status
+.venv\Scripts\python.exe cli.py download
+.venv\Scripts\python.exe cli.py mosaic
+```
+
+The updater sets the CLI data root to the project root, so downloaded imagery and reports remain under the persistent root `data/` directory rather than inside a versioned release folder. The CLI does not upload to OpenAerialMap.
+
 ### COG rebuild behavior
 
 The COG launcher:
