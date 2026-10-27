@@ -17,6 +17,7 @@ try {
     New-Item -ItemType Directory -Path (Join-Path $root "data") -Force | Out-Null
     Set-Content -LiteralPath (Join-Path $oldRelease "active.txt") -Value "old-release"
     Set-Content -LiteralPath (Join-Path $candidate "app.py") -Value "candidate"
+    Set-Content -LiteralPath (Join-Path $candidate "cli.py") -Value "candidate"
     Set-Content -LiteralPath (Join-Path $candidate "gui_app.py") -Value "candidate"
     Set-Content -LiteralPath (Join-Path $candidate "mosaic_core.py") -Value "candidate"
     Set-Content -LiteralPath (Join-Path $candidate "requirements.txt") -Value "test"
