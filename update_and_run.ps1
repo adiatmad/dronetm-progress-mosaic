@@ -14,7 +14,7 @@ if ($TestMode -and (-not $TestRoot -or -not $TestCandidatePath)) { throw "TestMo
 
 $InstallationsRoot = Join-Path $Root ".installations"
 $StatePath = Join-Path $Root ".launcher-state.json"
-$Required = @("app.py", "gui_app.py", "mosaic_core.py", "requirements.txt", "run_windows.bat")
+$Required = @("app.py", "cli.py", "gui_app.py", "mosaic_core.py", "requirements.txt", "run_windows.bat")
 $PreserveDirs = @("data", ".git", ".venv", ".streamlit", "__pycache__", ".pytest_cache", ".installations")
 $PreserveFiles = @(".env", ".env.local", ".launcher-state.json", "current-install.txt", "secrets.toml", "*.tif", "*.tiff", "*.png")
 $TempRoot = Join-Path ([IO.Path]::GetTempPath()) ("dronetm-update-" + [guid]::NewGuid().ToString("N"))
@@ -30,6 +30,37 @@ function Invoke-Checked {
     param([string]$File, [string[]]$Arguments)
     & $File @Arguments
     if ($LASTEXITCODE -ne 0) { throw "Command failed ($LASTEXITCODE): $File $($Arguments -join ' ')" }
+}
+function Start-LocalApplication {
+    param([string]$PythonPath, [string]$InstallPath)
+    Write-Host ""
+    Write-Host "Choose how to run DroneTM Progress Mosaic:"
+    Write-Host "  1. Native desktop GUI"
+    Write-Host "  2. Browser-free CLI menu"
+    Write-Host "  3. Exit"
+    do { $choice = Read-Host "Enter 1, 2, or 3" } while ($choice -notin @("1", "2", "3"))
+    if ($choice -eq "3") { return }
+
+    Push-Location $Root
+    try {
+        if ($choice -eq "2") {
+            $oldDataRoot = $env:DRONETM_DATA_ROOT
+            $env:DRONETM_DATA_ROOT = $Root
+            try {
+                & $PythonPath (Join-Path $InstallPath "cli.py")
+                if ($LASTEXITCODE -ne 0) { throw "CLI exited with code $LASTEXITCODE." }
+            } finally {
+                if ($null -eq $oldDataRoot) {
+                    Remove-Item Env:DRONETM_DATA_ROOT -ErrorAction SilentlyContinue
+                } else {
+                    $env:DRONETM_DATA_ROOT = $oldDataRoot
+                }
+            }
+        } else {
+            & $PythonPath (Join-Path $InstallPath "gui_app.py")
+            if ($LASTEXITCODE -ne 0) { throw "GUI exited with code $LASTEXITCODE." }
+        }
+    } finally { Pop-Location }
 }
 function Invoke-Robocopy {
     param([string]$Source, [string]$Destination, [string[]]$ExtraExcludeDirs = @())
@@ -61,7 +92,7 @@ function Invoke-DependencyInstall {
     Invoke-Checked -File $venvPython -Arguments @("-m", "pip", "install", "-r", (Join-Path $StagePath "requirements.txt"))
     Write-Host "Running staged import smoke test..."
     Push-Location $StagePath
-    try { Invoke-Checked -File $venvPython -Arguments @("-c", "import numpy, rasterio, requests; import mosaic_core; import gui_app") }
+    try { Invoke-Checked -File $venvPython -Arguments @("-c", "import numpy, rasterio, requests; import mosaic_core; import gui_app; import cli") }
     finally { Pop-Location }
 }
 function Set-StateAtomically {
@@ -112,10 +143,8 @@ try {
             $activeRelease = Join-Path $InstallationsRoot $releaseName
             $activePython = Join-Path $activeRelease ".venv\Scripts\python.exe"
             if (-not (Test-Path -LiteralPath $activePython)) { throw "Current release is missing its virtual environment; active files were not modified." }
-            Write-Host "Already at commit $latestSha. Launching verified local GUI."
-            Push-Location $Root
-            try { & $activePython (Join-Path $activeRelease "gui_app.py") } finally { Pop-Location }
-            if ($LASTEXITCODE -ne 0) { throw "GUI exited with code $LASTEXITCODE." }
+            Write-Host "Already at commit $latestSha. The verified local release is ready."
+            Start-LocalApplication -PythonPath $activePython -InstallPath $activeRelease
             exit 0
         }
         Write-Host "Downloading archive pinned to commit $latestSha..."
@@ -179,9 +208,7 @@ try {
 
     $activePython = Join-Path $NewRelease ".venv\Scripts\python.exe"
     if (-not (Test-Path -LiteralPath $activePython)) { throw "Activated release is missing its staged Python environment." }
-    Push-Location $Root
-    try { & $activePython (Join-Path $NewRelease "gui_app.py") } finally { Pop-Location }
-    if ($LASTEXITCODE -ne 0) { throw "GUI exited with code $LASTEXITCODE." }
+    Start-LocalApplication -PythonPath $activePython -InstallPath $NewRelease
 } catch {
     Write-Host ""
     Write-Host ("ERROR: " + $_.Exception.Message) -ForegroundColor Red

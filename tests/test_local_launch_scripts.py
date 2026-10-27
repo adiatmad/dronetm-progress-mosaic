@@ -74,3 +74,13 @@ def test_oam_prep_is_separate_non_overwriting_manual_workflow():
     assert "createmultipart" not in script.lower()
     assert "Invoke-WebRequest" not in script
     assert "Move-Item -LiteralPath $CandidateRaster -Destination $OutputRaster" in script
+
+
+def test_transactional_updater_offers_cli_without_moving_data_into_release():
+    updater = _read("update_and_run.ps1")
+    cli = _read("cli.py")
+    assert '"cli.py"' in updater
+    assert 'Join-Path $InstallPath "cli.py"' in updater
+    assert '$env:DRONETM_DATA_ROOT = $Root' in updater
+    assert 'os.environ.get("DRONETM_DATA_ROOT", "")' in cli
+    assert 'Browser-free CLI menu' in updater
